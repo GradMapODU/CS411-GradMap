@@ -1,8 +1,8 @@
 # GradMap Frontend
 
-React + Vite Application for the GradMap Scheduling Platform
-
-The GradMap Frontend is the user interface layer of the GradMap system. It provides role-based dashboards and scheduling interactions for students, advisors, and administrators.
+Frontend for the GradMap Platform (React + Vite Web Application)
+This is the user layer of the GradMap system. 
+It provides role-based interactions for students, advisors, and administrators.
 
 ---
 
@@ -46,13 +46,12 @@ http://localhost:5173
 
 ## Overview
 
-The GradMap Frontend is built using React and Vite to provide a fast, modern development experience with Hot Module Replacement (HMR).
+The GradMap Frontend is built using React and Vite.
 This version is currently a mock prototype, meaning:
-Authentication is simulated
-Data is stored locally using mock data
-No backend API is connected yet
-Role-based UI logic is implemented client-side
-The frontend is structured to allow seamless backend integration
+- Authentication is simulated
+- Data is stored locally using mock data
+- No backend API is connected yet
+- Role-based UI logic is implemented client-side
 
 ## Tech Stack
 - React
