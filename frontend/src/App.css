@@ -1,10 +1,10 @@
 /* =========================================================
 
    GradMap - App.css (Full)
-   - Dark theme base + layout + components + auth additions
+   - Dark theme base
    ========================================================= */
 
-/* ---------- Theme tokens ---------- */
+/* ---------- Theme ---------- */
 :root{
   --bg:#0b1220;
   --card:#121b2f;
@@ -14,7 +14,7 @@
   --border:rgba(255,255,255,.10);
 }
 
-/* ---------- Global reset ---------- */
+/* ---------- Globals ---------- */
 *{
   box-sizing:border-box;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
@@ -54,7 +54,7 @@ body{
   align-items:center;
 }
 
-/* ---------- Layout + cards ---------- */
+/* ---------- Layout ---------- */
 .layout{
   max-width:1000px;
   margin:24px auto;
@@ -147,6 +147,24 @@ body{
   font-weight: 700;
   margin-bottom: 6px;
 }
+.planAlert {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.planAlert--info {
+  color: #fff; /* Info - white*/
+}
+
+.planAlert--warning {
+  color: #f5c542; /* Warning - Yelloww*/
+}
+
+.planAlert--urgent {
+  color: #ff4d4d; /* Urgent - red */
+}
 
 /* Lists */
 .alerts__list {
@@ -154,7 +172,7 @@ body{
   padding-left: 18px;
 }
 
-/* Individual alert colors */
+/* alert colors */
 .alert--info {
   color: #ffffff; /* white */
 }
@@ -165,6 +183,19 @@ body{
 
 .alert--urgent {
   color: #ff4d4d; /* red */
+}
+/* Green text */
+.ok {
+  color: #2ecc71;
+}
+
+/* Green check icon  */
+.planAlertOk {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  color: #2ecc71;
+  user-select: none;
 }
 
 /* Optional: title colors to match */
