@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 // #region App Component
 // Acts as the main "controller" for the GradMap frontend (mock prototype)
 // RESPONSIBILITIES
@@ -46,7 +47,6 @@ function AdminDashboard() {
 
 // #region Main App Component
 export default function App() {
-
   // #region State Management
   // view: controls which top-level page is being displayed
   // - "login"    => LoginPage
@@ -57,13 +57,12 @@ export default function App() {
   // session: stores who is logged in and what roles they have
   // Example:
   // {
-  //   username: "ivan",
-  //   roles: ["student", "advisor"],
+  //   username: "student1",
+  //   roles: ["student"],
   //   activeRole: "student"
   // }
   const [session, setSession] = useState(null);
   // #endregion
-
 
   // #region Session Handlers (Login/Logout/Role Switching)
 
@@ -81,7 +80,7 @@ export default function App() {
 
   // Switches the currently active role (if the user has it)
   function switchRole(role) {
-    if (!session) return;                 // no session => do nothing
+    if (!session) return; // no session => do nothing
     if (!session.roles.includes(role)) return; // role not owned => do nothing
 
     // Create a new session object with updated activeRole
@@ -89,7 +88,6 @@ export default function App() {
   }
 
   // #endregion
-
 
   // #region Auth Views (Login / Register)
   // These are "early returns"—if we are on login or register,
@@ -131,13 +129,22 @@ export default function App() {
 
   // #endregion
 
-
   // #region Main App View (Role-Based Rendering)
   // If we got here, view === "app"
 
   // Safe defaults in case session is missing for any reason
   const activeRole = session?.activeRole || "student";
   const roles = session?.roles || ["student"];
+
+  // Choose user-specific mock records based on username
+  // Falls back to a default if the username isn't found in mockData
+  const studentRecord =
+    (session?.username && mockData.students?.[session.username]) ||
+    mockData.students?.student1;
+
+  const advisorRecord =
+    (session?.username && mockData.advisors?.[session.username]) ||
+    mockData.advisors?.advisor1;
 
   return (
     <div>
@@ -146,7 +153,6 @@ export default function App() {
         <div className="brand">GradMap</div>
 
         <nav className="nav">
-
           {/* Student role button */}
           {roles.includes("student") && (
             <button
@@ -195,15 +201,13 @@ export default function App() {
       <main className="layout">
         {activeRole === "student" ? (
           <StudentDashboard
-            student={mockData.student}
+            student={studentRecord}
             onSubmitPlan={() => alert("Mock: Plan submitted for advisor review!")}
           />
         ) : activeRole === "advisor" ? (
           <AdvisorQueue
-            advisor={mockData.advisor}
-            onOpenSubmission={(name) =>
-              alert(`Mock: Opening submission for ${name}`)
-            }
+            advisor={advisorRecord}
+            onOpenSubmission={(name) => alert(`Mock: Opening submission for ${name}`)}
           />
         ) : (
           <AdminDashboard />

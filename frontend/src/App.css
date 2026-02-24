@@ -1,4 +1,5 @@
 /* =========================================================
+
    GradMap - App.css (Full)
    - Dark theme base + layout + components + auth additions
    ========================================================= */
@@ -135,6 +136,44 @@ body{
 .btn.active{
   border-color:var(--accent);
   box-shadow:0 0 0 2px rgba(79,124,255,.25);
+}
+
+/* Alerts grouping */
+.alerts__group {
+  margin-top: 10px;
+}
+
+.alerts__title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* Lists */
+.alerts__list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Individual alert colors */
+.alert--info {
+  color: #ffffff; /* white */
+}
+
+.alert--warning {
+  color: #ffd54a; /* yellow-ish */
+}
+
+.alert--urgent {
+  color: #ff4d4d; /* red */
+}
+
+/* Optional: title colors to match */
+.alerts__title--warning {
+  color: #ffd54a;
+}
+
+.alerts__title--urgent {
+  color: #ff4d4d;
 }
 
 /* ---------- Lists ---------- */
