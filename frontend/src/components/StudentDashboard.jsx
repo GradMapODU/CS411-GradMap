@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 export default function StudentDashboard({ student, onSubmitPlan }) {
-  // ---------- Major + classification ----------
+  // ---------- Progress + classification ----------
   const pctFromCredits =
     typeof student?.creditsEarned === "number" &&
     typeof student?.creditsRequired === "number" &&
@@ -23,12 +23,18 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
       ? "Junior"
       : "Senior";
 
+  // ---------- Major + GPA ----------
   const major =
     student?.major || student?.program || student?.degreePlan || "Undeclared";
 
-  // ---------- per-plan alert severity ----------
-  // row.alerts expected shape:
-  // { informative?: string[], warnings?: string[], urgent?: string[] }
+  const gpa =
+    typeof student?.gpa === "number"
+      ? student.gpa.toFixed(2)
+      : student?.gpa
+      ? String(student.gpa)
+      : "N/A";
+
+  // ---------- per-plan alert levels ----------
   function getPlanAlertLevel(row) {
     const a = row?.alerts;
 
@@ -56,7 +62,7 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     return parts.join(" | ");
   }
 
-  // ---------- NEW: Selection state ----------
+  // ---------- Selection state ----------
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
   function getPlanId(row, index) {
@@ -124,11 +130,18 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     console.log("Export to PDF (mock):", selectedPlans);
   }
 
-  // ---------- status helpers ----------
+  // ---------- helpers ----------
   function normalizeStatus(s) {
     const v = String(s || "").trim();
     if (!v) return "In Progress";
     return v;
+  }
+
+  function getInitials(name = "") {
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] ?? "?";
+    const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (a + b).toUpperCase();
   }
 
   function getStatusClass(status) {
@@ -143,11 +156,7 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     return "status";
   }
 
-  // ---------- NEW: Alerts panel now uses plans / selection ----------
-  // We build the displayed alerts from:
-  // - 0 selected => all plans
-  // - 1 selected => that plan only
-  // - 2+ selected => selected plans
+  // ---------- Alerts panel uses plans / selection ----------
   const alertsSourcePlans = useMemo(() => {
     if (selectedCount === 0) return plans;
     return selectedPlans;
@@ -164,7 +173,6 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
       if (Array.isArray(a?.urgent)) merged.urgent.push(...a.urgent);
     }
 
-    // quick de-dupe (prevents repeats if 2 plans share same warning text)
     merged.informative = Array.from(new Set(merged.informative));
     merged.warnings = Array.from(new Set(merged.warnings));
     merged.urgent = Array.from(new Set(merged.urgent));
@@ -178,7 +186,8 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
 
   const alertsTitle = useMemo(() => {
     if (selectedCount === 0) return "Alerts - All Plans";
-    if (selectedCount === 1) return `Alerts - ${selectedPlans[0]?.term ?? "Selected Plan"}`;
+    if (selectedCount === 1)
+      return `Alerts - ${selectedPlans[0]?.term ?? "Selected Plan"}`;
     return "Alerts - Multiple Plans";
   }, [selectedCount, selectedPlans]);
 
@@ -189,25 +198,32 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
   return (
     <section className="card">
       <h2>Student Dashboard</h2>
-      <p>
-        <b>{student.name}</b>
-        <div className="muted">
-          {major} • {classification}
+
+      {/* Profile header */}
+      <div className="profileHeader">
+        <div className="profileRow">
+          <div className="avatar" aria-hidden="true">
+            {getInitials(student?.name)}
+          </div>
+
+          <div className="profileMeta">
+            <div className="profileName">{student?.name}</div>
+            <div className="muted">
+              {major} • {classification} • GPA: <b>{gpa}</b>
+            </div>
+          </div>
         </div>
-      </p>
+      </div>
 
       <div className="grid">
         <div className="panel">
           <h3>Progress</h3>
           <div className="progress">
-            <div
-              className="progress__bar"
-              style={{ width: `${student.progressPercent}%` }}
-            />
+            <div className="progress__bar" style={{ width: `${progressPct}%` }} />
           </div>
           <p>
-            <b>{student.progressPercent}%</b> complete • {student.creditsEarned} /{" "}
-            {student.creditsRequired} credits
+            <b>{Math.round(progressPct)}%</b> complete • {student?.creditsEarned ?? 0} /{" "}
+            {student?.creditsRequired ?? 0} credits
           </p>
         </div>
 
@@ -293,7 +309,7 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
                 </td>
 
                 <td>{row.term}</td>
-                <td>{row.courses.join(", ")}</td>
+                <td>{Array.isArray(row.courses) ? row.courses.join(", ") : ""}</td>
                 <td>{row.credits}</td>
 
                 <td>

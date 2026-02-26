@@ -14,24 +14,63 @@
 // #endregion
 
 
-// #region Imports
 import { useState } from "react";
 
-import StudentDashboard from "./components/StudentDashboard.jsx"; // Student view
-import AdvisorQueue from "./components/AdvisorQueue.jsx";         // Advisor view
-import LoginPage from "./components/LoginPage.jsx";              // Login view
-import RegisterPage from "./components/RegisterPage.jsx";        // Registration view
+import StudentDashboard from "./components/StudentDashboard.jsx";
+import AdvisorQueue from "./components/AdvisorQueue.jsx";
+import LoginPage from "./components/LoginPage.jsx";
+import RegisterPage from "./components/RegisterPage.jsx";
 
-import { mockData } from "./data/mockData.js";                   // Fake backend data
-import "./App.css";                                              // App styling
-// #endregion
+import { mockData } from "./data/mockData.js";
+import "./App.css";
 
+// ------------------------------
+// Placeholders
+// ------------------------------
+function GradPlansPage() {
+  return (
+    <section className="card">
+      <h2>GradPlans</h2>
+      <p className="muted">
+        Placeholder: generate course plans for each semester (builder UI, save/export, submit to advisor).
+      </p>
+    </section>
+  );
+}
 
-// #region Placeholder Admin Dashboard
-// In a real app, this would contain admin tools like:
-// - user management
-// - degree catalog editing
-// - program requirements management
+function CourseCataloguePage() {
+  return (
+    <section className="card">
+      <h2>Course Catalogue</h2>
+      <p className="muted">
+        Placeholder: browse courses for your major (search/filter, prereqs, credits, availability).
+      </p>
+    </section>
+  );
+}
+
+function AdvisingHubPage() {
+  return (
+    <section className="card">
+      <h2>Advising Hub</h2>
+      <p className="muted">
+        Placeholder: advisor info + contact (office hours, booking links, queue, notes).
+      </p>
+    </section>
+  );
+}
+
+function ResourcesPage() {
+  return (
+    <section className="card">
+      <h2>Resources</h2>
+      <p className="muted">
+        Placeholder: links to school resources (registrar, tutoring, financial aid, policies, etc.).
+      </p>
+    </section>
+  );
+}
+
 function AdminDashboard() {
   return (
     <section className="card">
@@ -42,57 +81,50 @@ function AdminDashboard() {
     </section>
   );
 }
-// #endregion
 
-
-// #region Main App Component
 export default function App() {
-  // #region State Management
-  // view: controls which top-level page is being displayed
-  // - "login"    => LoginPage
-  // - "register" => RegisterPage
-  // - "app"      => Main GradMap application shell
+  // view: login | register | app
   const [view, setView] = useState("login");
 
-  // session: stores who is logged in and what roles they have
-  // Example:
-  // {
-  //   username: "student1",
-  //   roles: ["student"],
-  //   activeRole: "student"
-  // }
+  // session -> username, roles, activeRole
   const [session, setSession] = useState(null);
-  // #endregion
 
-  // #region Session Handlers (Login/Logout/Role Switching)
+  // Student hamburger
+  const [studentPage, setStudentPage] = useState("dashboard"); // dashboard|gradplans|catalogue|advising|resources
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // Called by LoginPage when the user successfully signs in
   function loginSuccess(s) {
     setSession(s);
     setView("app");
+    setStudentPage("dashboard");
+    setMenuOpen(false);
   }
 
-  // Clears session and returns user to login view
   function logout() {
     setSession(null);
     setView("login");
+    setMenuOpen(false);
   }
 
-  // Switches the currently active role (if the user has it)
   function switchRole(role) {
-    if (!session) return; // no session => do nothing
-    if (!session.roles.includes(role)) return; // role not owned => do nothing
+    if (!session) return;
+    if (!session.roles.includes(role)) return;
 
-    // Create a new session object with updated activeRole
     setSession({ ...session, activeRole: role });
+    setMenuOpen(false);
+
+    if (role === "student") setStudentPage("dashboard");
+  }
+  function getInitials(name = "") {
+    const parts = String(name).trim().split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] ?? "?";
+    const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+    return (a + b).toUpperCase();
   }
 
-  // #endregion
-
-  // #region Auth Views (Login / Register)
-  // These are "early returns"—if we are on login or register,
-  // we render those pages and skip rendering the main app.
-
+  // ------------------------------
+  // Auth views
+  // ------------------------------
   if (view === "login") {
     return (
       <div>
@@ -101,10 +133,7 @@ export default function App() {
         </header>
 
         <main className="layout">
-          <LoginPage
-            onLoginSuccess={loginSuccess}
-            onGoRegister={() => setView("register")}
-          />
+          <LoginPage onLoginSuccess={loginSuccess} onGoRegister={() => setView("register")} />
         </main>
       </div>
     );
@@ -118,42 +147,80 @@ export default function App() {
         </header>
 
         <main className="layout">
-          <RegisterPage
-            onRegistered={() => setView("login")}
-            onCancel={() => setView("login")}
-          />
+          <RegisterPage onRegistered={() => setView("login")} onCancel={() => setView("login")} />
         </main>
       </div>
     );
   }
 
-  // #endregion
-
-  // #region Main App View (Role-Based Rendering)
-  // If we got here, view === "app"
-
-  // Safe defaults in case session is missing for any reason
+  // ------------------------------
+  // Main app view
+  // ------------------------------
   const activeRole = session?.activeRole || "student";
   const roles = session?.roles || ["student"];
 
-  // Choose user-specific mock records based on username
-  // Falls back to a default if the username isn't found in mockData
   const studentRecord =
-    (session?.username && mockData.students?.[session.username]) ||
-    mockData.students?.student1;
+    (session?.username && mockData.students?.[session.username]) || mockData.students?.student1;
 
   const advisorRecord =
-    (session?.username && mockData.advisors?.[session.username]) ||
-    mockData.advisors?.advisor1;
+    (session?.username && mockData.advisors?.[session.username]) || mockData.advisors?.advisor1;
+
+  const showStudentSidebar = activeRole === "student";
+
+  const studentNavItems = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "gradplans", label: "GradPlans" },
+    { id: "catalogue", label: "Course Catalogue" },
+    { id: "advising", label: "Advising Hub" },
+    { id: "resources", label: "Resources" },
+  ];
+
+  function goStudentPage(id) {
+    setStudentPage(id);
+    setMenuOpen(false);
+  }
+
+  function renderStudentPage() {
+    switch (studentPage) {
+      case "dashboard":
+        return (
+          <StudentDashboard
+            student={studentRecord}
+            onSubmitPlan={() => alert("Mock: Plan submitted for advisor review!")}
+          />
+        );
+      case "gradplans":
+        return <GradPlansPage />;
+      case "catalogue":
+        return <CourseCataloguePage />;
+      case "advising":
+        return <AdvisingHubPage />;
+      case "resources":
+        return <ResourcesPage />;
+      default:
+        return null;
+    }
+  }
 
   return (
     <div>
-      {/* Header + Role Navigation */}
+      {/* Top bar */}
       <header className="topbar">
-        <div className="brand">GradMap</div>
+        <div className="topbarLeft">
+          {showStudentSidebar && (
+            <button
+              className="btn hamburger"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+            >
+              ☰
+            </button>
+          )}
+          <div className="brand">GradMap</div>
+        </div>
 
         <nav className="nav">
-          {/* Student role button */}
           {roles.includes("student") && (
             <button
               className={`btn ${activeRole === "student" ? "active" : ""}`}
@@ -163,7 +230,6 @@ export default function App() {
             </button>
           )}
 
-          {/* Advisor role button */}
           {roles.includes("advisor") && (
             <button
               className={`btn ${activeRole === "advisor" ? "active" : ""}`}
@@ -173,7 +239,6 @@ export default function App() {
             </button>
           )}
 
-          {/* Admin role button */}
           {roles.includes("admin") && (
             <button
               className={`btn ${activeRole === "admin" ? "active" : ""}`}
@@ -185,25 +250,56 @@ export default function App() {
 
           <div className="navSpacer" />
 
-          {/* Logged-in user display */}
-          <div className="userChip" title={session?.username}>
-            {session?.username}
+          <div className="topUser">
+            <div className="avatar avatarSm" aria-hidden="true">
+              {getInitials(session?.username)}
+            </div>
+            <div className="userChip" title={session?.username}>
+              {session?.username}
+            </div>
           </div>
 
-          {/* Logout button */}
           <button className="btn" onClick={logout}>
             Logout
           </button>
         </nav>
       </header>
 
-      {/* Role content */}
-      <main className="layout">
-        {activeRole === "student" ? (
-          <StudentDashboard
-            student={studentRecord}
-            onSubmitPlan={() => alert("Mock: Plan submitted for advisor review!")}
+      {/* Student sidebar (only when activeRole === "student") */}
+      {showStudentSidebar && (
+        <>
+          <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
+            <div className="sidebarHeader">
+              <div className="sidebarTitle">Student Menu</div>
+              <button className="btn sidebarClose" onClick={() => setMenuOpen(false)} aria-label="Close menu">
+                ✕
+              </button>
+            </div>
+
+            <div className="sidebarLinks">
+              {studentNavItems.map((item) => (
+                <button
+                  key={item.id}
+                  className={`sideLink ${studentPage === item.id ? "active" : ""}`}
+                  onClick={() => goStudentPage(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </aside>
+
+          <div
+            className={`sidebarOverlay ${menuOpen ? "open" : ""}`}
+            onClick={() => setMenuOpen(false)}
           />
+        </>
+      )}
+
+      {/* Content */}
+      <main className={`layout ${showStudentSidebar ? "layoutWithSidebar" : ""}`}>
+        {activeRole === "student" ? (
+          renderStudentPage()
         ) : activeRole === "advisor" ? (
           <AdvisorQueue
             advisor={advisorRecord}
@@ -215,7 +311,4 @@ export default function App() {
       </main>
     </div>
   );
-
-  // #endregion
 }
-// #endregion

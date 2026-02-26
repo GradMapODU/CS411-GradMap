@@ -1,8 +1,7 @@
 /* =========================================================
-
-   GradMap - App.css (Full)
-   - Dark theme base
-   ========================================================= */
+   GradMap - App.css
+   - Dark blue ish theme
+========================================================= */
 
 /* ---------- Theme ---------- */
 :root{
@@ -71,7 +70,7 @@ body{
   box-shadow:0 10px 30px rgba(0,0,0,.25);
 }
 
-/* ---------- Panels + grids ---------- */
+/* ---------- Panelss ---------- */
 .grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -198,7 +197,6 @@ body{
   user-select: none;
 }
 
-/* Optional: title colors to match */
 .alerts__title--warning {
   color: #ffd54a;
 }
@@ -230,7 +228,7 @@ small{
 
 /* =========================================================
    Auth UI additions
-   ========================================================= */
+========================================================= */
 .authCard{
   max-width:560px;
   margin:0 auto;
@@ -283,7 +281,7 @@ small{
   color:var(--muted);
 }
 
-/* roles on register */
+
 .roleGrid{
   display:flex;
   gap:10px;
@@ -300,7 +298,6 @@ small{
   background:rgba(255,255,255,.02);
 }
 
-/* topbar user area */
 .navSpacer{
   flex:1;
 }
@@ -316,9 +313,157 @@ small{
   white-space:nowrap;
 }
 
-/* ---------- Responsive ---------- */
+
 @media (max-width: 800px){
   .grid{
     grid-template-columns:1fr;
+  }
+}
+/* =========================================================
+  Hamburger (Student )
+========================================================= */
+
+.topbarLeft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.hamburger{
+  width:42px;
+  height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+}
+
+
+.sidebar{
+  position:fixed;
+  top:0;
+  left:0;
+  height:100vh;
+  width:280px;
+  background:rgba(18,27,47,.98);
+  border-right:1px solid var(--border);
+  box-shadow: 12px 0 30px rgba(0,0,0,.35);
+  transform:translateX(-105%);
+  transition:transform .18s ease-out;
+  z-index:1000;
+  display:flex;
+  flex-direction:column;
+}
+
+.sidebar.open{
+  transform:translateX(0);
+}
+
+.sidebarHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 14px;
+  border-bottom:1px solid var(--border);
+}
+
+.sidebarTitle{
+  font-weight:800;
+  letter-spacing:.2px;
+}
+
+.sidebarClose{
+  padding:6px 10px;
+}
+
+.sidebarLinks{
+  padding:12px;
+  display:grid;
+  gap:8px;
+}
+
+.sideLink{
+  width:100%;
+  text-align:left;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+}
+
+.sideLink:hover{
+  border-color:rgba(255,255,255,.18);
+}
+
+.sideLink.active{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(79,124,255,.20);
+}
+
+
+.sidebarOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease-out;
+  z-index:999;
+}
+
+.sidebarOverlay.open{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.avatar{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  letter-spacing:.5px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid var(--border);
+  user-select:none;
+}
+
+.avatarSm{
+  width:30px;
+  height:30px;
+  font-size:.85rem;
+}
+
+.profileRow{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.profileMeta{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.profileName{
+  font-size:1.1rem;
+  font-weight:800;
+}
+
+.topUser{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+@media (min-width: 1100px){
+  .layoutWithSidebar{
+    padding-left:16px;
   }
 }
