@@ -64,7 +64,7 @@ export const mockData = {
     },
 
     student2: {
-      name: "Alyssa Chen",
+      name: "Dani Brandt",
       major: "Cybersecurity",
       progressPercent: 41,
       creditsEarned: 50,
@@ -92,38 +92,11 @@ export const mockData = {
         }
       ]
     },
-
-    student3: {
-      name: "Marcus Reed",
-      major: "Information Systems",
-      progressPercent: 78,
-      creditsEarned: 95,
-      creditsRequired: 122,
-
-      alerts: ["Need 1 more Science elective"],
-
-      plan: [
-        {
-          id: "plan-marcus-fall-2026",
-          term: "Fall 2026",
-          courses: ["CS 361", "CS 330", "Elective"],
-          credits: 9,
-          status: "Submitted"
-        },
-        {
-          id: "plan-marcus-spring-2027",
-          term: "Spring 2027",
-          courses: ["CS 410", "CS 411W", "CS 471"],
-          credits: 9,
-          status: "Completed"
-        }
-      ]
-    }
   },
 
   advisors: {
     advisor1: {
-      name: "Dr. Patel",
+      name: "Matthew Haydon",
       submissions: [
         { student: "Ivan Gunn", submitted: "Feb 13, 2026", status: "Pending" },
         { student: "Alyssa Chen", submitted: "Feb 12, 2026", status: "Needs changes" }
@@ -131,11 +104,17 @@ export const mockData = {
     },
 
     advisor2: {
-      name: "Prof. Nguyen",
+      name: "Brice Bounds",
       submissions: [
         { student: "Marcus Reed", submitted: "Feb 10, 2026", status: "Pending" },
         { student: "Ivan Gunn", submitted: "Feb 09, 2026", status: "Approved" }
       ]
     }
+  },
+  admins: {
+    admins: {
+      name: "Prof. Sanober",
+    },
+
   }
 };

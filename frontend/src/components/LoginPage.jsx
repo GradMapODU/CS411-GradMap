@@ -27,7 +27,7 @@ const builtins = useMemo(
     // Students
     { username: "student1", password: "student1", roles: ["student"] },
     { username: "student2", password: "student2", roles: ["student"] },
-    { username: "student3", password: "student3", roles: ["student"] },
+    //{ username: "student3", password: "student3", roles: ["student"] },
 
     // Advisors
     { username: "advisor1", password: "advisor1", roles: ["advisor"] },
@@ -97,7 +97,7 @@ const builtins = useMemo(
       <h2>Login</h2>
 
       <p className="muted">
-        Try: <b>student1/student1</b>, <b>student2/student2</b>, <b>student3/student3</b>,{" "}
+        Try: <b>student1/student1</b>, <b>student2/student2</b>,{" "}
         <b>advisor1/advisor1</b>, <b>advisor2/advisor2</b>, <b>admin/admin</b>
       </p>
 
