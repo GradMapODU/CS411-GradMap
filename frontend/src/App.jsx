@@ -19,6 +19,7 @@ import StudentDashboard from "./components/StudentDashboard.jsx";
 import AdvisorQueue from "./components/AdvisorQueue.jsx";
 import LoginPage from "./components/LoginPage.jsx";
 import RegisterPage from "./components/RegisterPage.jsx";
+import MyAvailabilityPage from "./components/MyAvailabilityPage.jsx";
 
 import { mockData } from "./data/mockData.js";
 import "./App.css";
@@ -44,33 +45,6 @@ function CourseCataloguePage() {
       <p className="muted">
         Placeholder: browse courses for your major (search/filter, prereqs, credits, availability).
       </p>
-    </section>
-  );
-}
-
-function MyAvailabilityPage() {
-  return (
-    <section className="card">
-      <h2>My Availability</h2>
-      <p className="muted">
-        Placeholder: set weekly availability and add constraint blocks (work, commute, athletics, appointments).
-      </p>
-
-      <div className="grid">
-        <div className="panel">
-          <h3>Weekly Availability</h3>
-          <p className="muted">
-            Example: choose days/times you are available for classes.
-          </p>
-        </div>
-
-        <div className="panel">
-          <h3>Constraint Blocks</h3>
-          <p className="muted">
-            Example: add time blocks that GradMap should never schedule classes in.
-          </p>
-        </div>
-      </div>
     </section>
   );
 }
@@ -222,7 +196,12 @@ export default function App() {
       case "catalogue":
         return <CourseCataloguePage />;
       case "availability":
-        return <MyAvailabilityPage />; // ✅ added
+        return (
+          <MyAvailabilityPage
+            key={session?.username || "student"}
+            student={studentRecord}
+          />
+        );
       case "advising":
         return <AdvisingHubPage />;
       case "resources":
