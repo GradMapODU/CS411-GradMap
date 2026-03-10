@@ -20,6 +20,8 @@ import AdvisorQueue from "./components/AdvisorQueue.jsx";
 import LoginPage from "./components/LoginPage.jsx";
 import RegisterPage from "./components/RegisterPage.jsx";
 import MyAvailabilityPage from "./components/MyAvailabilityPage.jsx";
+import GradPlansPage from "./components/GradPlansPage.jsx";
+import CourseCataloguePage from "./components/CourseCataloguePage.jsx";
 
 import { mockData } from "./data/mockData.js";
 import "./App.css";
@@ -27,27 +29,6 @@ import "./App.css";
 // ------------------------------
 // Placeholders
 // ------------------------------
-function GradPlansPage() {
-  return (
-    <section className="card">
-      <h2>GradPlans</h2>
-      <p className="muted">
-        Placeholder: generate course plans for each semester (builder UI, save/export, submit to advisor).
-      </p>
-    </section>
-  );
-}
-
-function CourseCataloguePage() {
-  return (
-    <section className="card">
-      <h2>Course Catalogue</h2>
-      <p className="muted">
-        Placeholder: browse courses for your major (search/filter, prereqs, credits, availability).
-      </p>
-    </section>
-  );
-}
 
 function AdvisingHubPage() {
   return (
@@ -166,6 +147,12 @@ export default function App() {
   const advisorRecord =
     (session?.username && mockData.advisors?.[session.username]) || mockData.advisors?.advisor1;
 
+  const catalogueCourses =
+    mockData?.courseCatalog?.[studentRecord?.major] ||
+    mockData?.courseCatalog?.["Computer Science"] ||
+    [];
+
+
   const showStudentSidebar = activeRole === "student";
 
   const studentNavItems = [
@@ -192,9 +179,14 @@ export default function App() {
           />
         );
       case "gradplans":
-        return <GradPlansPage />;
+        return <GradPlansPage student={studentRecord} />;
       case "catalogue":
-        return <CourseCataloguePage />;
+        return (
+          <CourseCataloguePage
+            student={studentRecord}
+            courses={catalogueCourses}
+          />
+        );
       case "availability":
         return (
           <MyAvailabilityPage

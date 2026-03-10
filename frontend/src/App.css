@@ -320,6 +320,257 @@ small{
   }
 }
 /* =========================================================
+   Course Catalogue Page
+========================================================= */
+
+.catalogHero{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:16px;
+  flex-wrap:wrap;
+}
+
+.catalogHero__subtitle{
+  margin-top:6px;
+  max-width:700px;
+}
+
+.catalogStats{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.catalogStat{
+  min-width:120px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:12px 14px;
+  background:rgba(255,255,255,.03);
+}
+
+.catalogStat__value{
+  font-size:1.35rem;
+  font-weight:800;
+}
+
+.catalogStat__label{
+  margin-top:4px;
+  font-size:.92rem;
+}
+
+.catalogToolbar{
+  display:grid;
+  grid-template-columns: minmax(260px, 1.5fr) repeat(2, minmax(140px, .6fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.catalogToolbar__group{
+  display:grid;
+  gap:6px;
+}
+
+.catalogToolbar__group--search{
+  min-width:0;
+}
+
+.catalogFieldLabel{
+  color:var(--muted);
+  font-size:.92rem;
+}
+
+.catalogGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  gap:14px;
+}
+
+.catalogCourseCard{
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+  background:rgba(255,255,255,.025);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.catalogCourseCard__top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.catalogCourseCard__code{
+  color:#9bb3ff;
+  font-weight:800;
+  font-size:.95rem;
+  letter-spacing:.3px;
+}
+
+.catalogCourseCard__title{
+  margin:4px 0 0;
+  font-size:1.05rem;
+}
+
+.catalogCourseCard__desc{
+  margin:0;
+  line-height:1.5;
+}
+
+.catalogCourseCard__badges{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.catalogBadge{
+  border:1px solid rgba(79,124,255,.35);
+  background:rgba(79,124,255,.14);
+  color:var(--text);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:.82rem;
+  white-space:nowrap;
+}
+
+.catalogBadge--soft{
+  border-color:var(--border);
+  background:rgba(255,255,255,.04);
+}
+
+.catalogTagRow{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.catalogTag{
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:5px 9px;
+  font-size:.8rem;
+  color:var(--muted);
+  background:rgba(255,255,255,.03);
+}
+
+.catalogCourseCard__meta{
+  display:grid;
+  gap:8px;
+  margin-top:auto;
+  padding-top:6px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+
+.catalogLabel{
+  font-weight:700;
+  color:var(--text);
+}
+
+@media (max-width: 800px){
+  .catalogToolbar{
+    grid-template-columns:1fr;
+  }
+
+  .catalogCourseCard__top{
+    flex-direction:column;
+  }
+
+  .catalogCourseCard__badges{
+    justify-content:flex-start;
+  }
+}
+/* =========================================================
+   GradPlans Page
+========================================================= */
+
+.gradPlansLayout{
+  display:grid;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap:16px;
+  align-items:start;
+}
+
+.gradPlansLeftCol,
+.gradPlansCenterCol,
+.gradPlansRightCol{
+  min-width:0;
+}
+
+.stickyPanel{
+  position:sticky;
+  top:84px;
+}
+
+.gpProfileCard{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  margin-bottom:16px;
+}
+
+.gpProfileCard__avatar{
+  width:72px;
+  height:72px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:1.35rem;
+  letter-spacing:.5px;
+  background:rgba(255,255,255,.08);
+  border:1px solid var(--border);
+  margin-bottom:10px;
+}
+
+.gpProfileCard__name{
+  font-size:1.2rem;
+  font-weight:800;
+}
+
+.gpProfileCard__meta{
+  margin-top:4px;
+}
+
+.gpPlanCard,
+.gpMiniPlanCard,
+.gpSuggestionCard,
+.advisorNoteCard{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.02);
+}
+
+.gpPlanCard{
+  padding:14px;
+  margin-bottom:16px;
+}
+
+.gpPlanCard--highlight{
+  border-color:rgba(79,124,255,.45);
+  box-shadow:0 0 0 1px rgba(79,124,255,.18);
+}
+
+.gpPlanCard__header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.gpPlanCard__title{
+  margin:0;
+  font-size:1.1rem;
+}
+/* =========================================================
   Hamburger (Student )
 ========================================================= */
 

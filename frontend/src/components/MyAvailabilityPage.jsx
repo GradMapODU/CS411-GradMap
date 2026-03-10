@@ -27,24 +27,7 @@ const HOUR_OPTIONS = [
   "9:00 PM",
 ];
 
-const TIME_OPTIONS = [
-  "6:00 AM",
-  "7:00 AM",
-  "8:00 AM",
-  "9:00 AM",
-  "10:00 AM",
-  "11:00 AM",
-  "12:00 PM",
-  "1:00 PM",
-  "2:00 PM",
-  "3:00 PM",
-  "4:00 PM",
-  "5:00 PM",
-  "6:00 PM",
-  "7:00 PM",
-  "8:00 PM",
-  "9:00 PM",
-];
+const TIME_OPTIONS = [...HOUR_OPTIONS];
 
 const TERM_OPTIONS = ["Spring 2026", "Summer 2026", "Fall 2026", "Winter 2026"];
 
@@ -60,11 +43,11 @@ function createDefaultAvailability() {
   return {
     term: "Fall 2026",
     weeklyHours: {
-      mon: ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"],
-      tue: ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"],
-      wed: ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"],
-      thu: ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"],
-      fri: ["8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"],
+      mon: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
+      tue: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
+      wed: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
+      thu: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
+      fri: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
     },
     blocks: [],
   };
@@ -78,6 +61,18 @@ function normalizeWeeklyHours(weeklyHours) {
     thu: Array.isArray(weeklyHours?.thu) ? weeklyHours.thu : [],
     fri: Array.isArray(weeklyHours?.fri) ? weeklyHours.fri : [],
   };
+}
+
+function isHourWithinBlock(hour, block) {
+  const hourIdx = timeIndex(hour);
+  const startIdx = timeIndex(block.start);
+  const endIdx = timeIndex(block.end);
+
+  if (hourIdx === -1 || startIdx === -1 || endIdx === -1) return false;
+
+  // inclusive start, exclusive end
+  // Example: 6:00 AM - 8:00 AM blocks 6:00 and 7:00, but not 8:00
+  return hourIdx >= startIdx && hourIdx < endIdx;
 }
 
 export default function MyAvailabilityPage({ student }) {
@@ -188,13 +183,16 @@ export default function MyAvailabilityPage({ student }) {
     return HOUR_OPTIONS.map((hour) => {
       const cells = DAYS.map((d) => {
         const isAvailable = (weeklyHours[d.id] || []).includes(hour);
-        const startedHere = (blocksByDay[d.id] || []).find((b) => b.start === hour);
+
+        const coveringBlock = (blocksByDay[d.id] || []).find((b) =>
+          isHourWithinBlock(hour, b)
+        );
 
         return {
           dayId: d.id,
           hour,
           isAvailable,
-          startedHere,
+          coveringBlock,
         };
       });
 
@@ -434,9 +432,9 @@ export default function MyAvailabilityPage({ student }) {
                   let title = "Blocked / unavailable";
                   let className = "muted";
 
-                  if (c.startedHere) {
-                    text = `Constraint: ${c.startedHere.title}`;
-                    title = `${c.startedHere.title} (${c.startedHere.start}–${c.startedHere.end})`;
+                  if (c.coveringBlock) {
+                    text = `Constraint: ${c.coveringBlock.title}`;
+                    title = `${c.coveringBlock.title} (${c.coveringBlock.start}–${c.coveringBlock.end})`;
                     className = "";
                   } else if (c.isAvailable) {
                     text = "Free";
