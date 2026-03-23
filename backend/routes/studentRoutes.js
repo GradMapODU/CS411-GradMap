@@ -1,14 +1,12 @@
-import { Router } from 'express';
-const router = Router();
-import { createPlan, getMyPlans } from '../controllers/studentController';
-import { authenticateToken } from '../middleware/authMiddleware';
-import { authorizeRoles } from '../middleware/roleMiddleware';
+const express = require('express');
+const router = express.Router();
+const studentCtrl = require('../controllers/studentController');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 
-router.use(authenticateToken);
-router.use(authorizeRoles('Student'));
+router.use(authenticateToken, requireRole('Student'));
 
-// Student APIs
-router.post('/create-plan', createPlan);
-router.get('/my-plans', getMyPlans);
+router.get('/requirements', studentCtrl.getRequirements);
+router.post('/generate-semester', studentCtrl.generateSemester);
+router.get('/plans/:plan_id/conflicts', studentCtrl.checkConflicts);
 
-export default router;
+module.exports = router;

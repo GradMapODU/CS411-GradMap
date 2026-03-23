@@ -1,22 +1,34 @@
-import { findOne } from '../models/User';
-import { comparePassword } from '../utils/hash';
-import { sign } from 'jsonwebtoken';
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { User, Student, Advisor, Admin } = require('../models');
 
-const SECRET_KEY = 'gradmap_demo_secret'; // for demo
-
-export async function login(req, res) {
-    const { username, password } = req.body;
+exports.register = async (req, res) => {
     try {
-        const user = await findOne({ where: { username } });
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        const { username, password, role, first_name, last_name, major, department } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        const user = await User.create({ username, password_hash: hashedPassword, role });
 
-        const valid = await comparePassword(password, user.password_hash);
-        if (!valid) return res.status(401).json({ error: 'Invalid password' });
+        if (role === 'Student') await Student.create({ student_id: user.user_id, first_name, last_name, major });
+        if (role === 'Advisor') await Advisor.create({ advisor_id: user.user_id, first_name, last_name, department });
+        if (role === 'Admin') await Admin.create({ admin_id: user.user_id, first_name, last_name, access_level: 1 });
 
-        const token = sign({ user_id: user.user_id, role: user.role }, SECRET_KEY, { expiresIn: '2h' });
-        res.json({ token, role: user.role, user_id: user.user_id });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-}
+        res.status(201).json({ message: `${role} registered successfully` });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+exports.login = async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        const user = await User.findOne({ where: { username } });
+
+        if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+
+        const token = jwt.sign({ user_id: user.user_id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '1d' });
+        res.json({ token, role: user.role });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+    
+};
+

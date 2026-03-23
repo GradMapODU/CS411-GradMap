@@ -1,41 +1,78 @@
-import { create, findAll } from '../models/Plan';
-import PlannedCourse, { create as _create } from '../models/PlannedCourse';
-import { generateSchedule, checkPrerequisites } from '../services/scheduleService';
-import { findAll as _findAll } from '../models/Course';
+const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot } = require('../models');
 
-export async function createPlan(req, res) {
-    const { degree_program, selected_course_ids } = req.body;
-    const student_id = req.user.user_id;
-
+exports.getRequirements = async (req, res) => {
     try {
-        const courses = await _findAll({ where: { course_id: selected_course_ids } });
+        const student = await Student.findByPk(req.user.user_id);
+        const program = await Program.findOne({
+            where: { name: student.major },
+            include: [{ 
+                model: Course, 
+                through: { attributes: ['requirement_type'] },
+                include: [{ model: Course, as: 'RequiredPrerequisites', attributes: ['course_code', 'course_name'] }]
+            }]
+        });
 
-        const missingPrereqs = await checkPrerequisites(courses);
-        if (missingPrereqs.length > 0) {
-            return res.status(400).json({ error: 'Missing prerequisites', details: missingPrereqs });
+        if (!program) return res.status(404).json({ error: 'Degree program not found.' });
+        res.json(program);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+exports.generateSemester = async (req, res) => {
+    try {
+        const student = await Student.findByPk(req.user.user_id);
+        const targetSemester = req.body.semester || 'Fall';
+        
+        const program = await Program.findOne({
+            where: { name: student.major },
+            include: [{ model: Course }]
+        });
+
+        const availableCourses = await SemesterOffering.findAll({
+            where: { semester: targetSemester },
+            include: [{ model: Course }]
+        });
+
+        const plan = await Plan.create({ student_id: student.student_id, degree_program: student.major, status: 'Draft', creation_date: new Date() });
+        
+        let coursesAdded = 0;
+        for (let offered of availableCourses) {
+            if (coursesAdded >= 4) break;
+            
+            const isRequired = program.Courses.some(reqCourse => reqCourse.course_id === offered.course_id);
+            if (isRequired) {
+                await PlannedCourse.create({ plan_id: plan.plan_id, course_id: offered.course_id, semester: targetSemester, year: new Date().getFullYear() });
+                coursesAdded++;
+            }
         }
 
-        const plan = await create({ student_id, degree_program, creation_date: new Date(), status: 'Draft' });
-        const scheduledCourses = await generateSchedule(courses);
+        res.status(201).json({ message: 'Semester generated based on catalog offerings', plan_id: plan.plan_id });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
 
-        for (const sc of scheduledCourses) {
-            await _create({
-                plan_id: plan.plan_id,
-                course_id: sc.course_id,
-                semester: sc.semester,
-                year: sc.year
-            });
+exports.checkConflicts = async (req, res) => {
+    try {
+        const { plan_id } = req.params;
+        const courses = await PlannedCourse.findAll({ 
+            where: { plan_id }, 
+            include: [{ model: Course, include: [TimeSlot] }] 
+        });
+
+        let conflicts = [];
+        for (let i = 0; i < courses.length; i++) {
+            for (let j = i + 1; j < courses.length; j++) {
+                const slotsI = courses[i].Course.Time_Slots || [];
+                const slotsJ = courses[j].Course.Time_Slots || [];
+                
+                for (const slot1 of slotsI) {
+                    for (const slot2 of slotsJ) {
+                        if (slot1.days === slot2.days && slot1.time_range === slot2.time_range) {
+                            conflicts.push(`Conflict: ${courses[i].Course.course_name} and ${courses[j].Course.course_name} both meet at ${slot1.time_range} on ${slot1.days}.`);
+                        }
+                    }
+                }
+            }
         }
-
-        res.json({ message: 'Plan created successfully', plan_id: plan.plan_id });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
-    }
-}
-
-export async function getMyPlans(req, res) {
-    const student_id = req.user.user_id;
-    const plans = await findAll({ where: { student_id }, include: PlannedCourse });
-    res.json(plans);
-}
+        
+        res.json({ hasConflicts: conflicts.length > 0, conflicts });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};

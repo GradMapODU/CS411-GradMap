@@ -1,14 +1,11 @@
-import { Router } from 'express';
-const router = Router();
-import { getAssignedPlans, reviewPlan } from '../controllers/advisorController';
-import { authenticateToken } from '../middleware/authMiddleware';
-import { authorizeRoles } from '../middleware/roleMiddleware';
+const express = require('express');
+const router = express.Router();
+const advisorCtrl = require('../controllers/advisorController');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 
-router.use(authenticateToken);
-router.use(authorizeRoles('Advisor'));
+router.use(authenticateToken, requireRole('Advisor'));
 
-// Advisor APIs
-router.get('/assigned-plans', getAssignedPlans);
-router.post('/review-plan', reviewPlan);
+router.get('/students', advisorCtrl.getMyStudents);
+router.put('/plans/:plan_id', advisorCtrl.reviewPlan);
 
-export default router;
+module.exports = router;
