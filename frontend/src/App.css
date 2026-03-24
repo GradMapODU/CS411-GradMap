@@ -718,3 +718,203 @@ small{
     padding-left:16px;
   }
 }
+/* =========================================================
+   Advisor Dashboard
+========================================================= */
+
+.advisorDashboard{
+  display:grid;
+  grid-template-columns:320px minmax(0, 1fr);
+  gap:16px;
+  align-items:start;
+}
+
+.advisorSidebar{
+  display:grid;
+  gap:16px;
+}
+
+.advisorDetailCard{
+  min-width:0;
+}
+
+.advisorMiniCard{
+  align-items:flex-start;
+}
+
+.advisorSubmissionBtn{
+  width:100%;
+  text-align:left;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+  color:var(--text);
+  padding:12px;
+  cursor:pointer;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.advisorSubmissionBtn:hover{
+  border-color:rgba(255,255,255,.18);
+  background:rgba(255,255,255,.04);
+}
+
+.advisorSubmissionBtn.selected{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(79,124,255,.20);
+  background:rgba(79,124,255,.08);
+}
+
+.advisorSubmissionBtn__top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+.advisorSubmissionBtn__meta{
+  display:grid;
+  gap:4px;
+}
+
+.advisorDetailHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.advisorDetailGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.advisorInfoBlock{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+  background:rgba(255,255,255,.02);
+}
+
+.advisorInfoBlock h3{
+  margin-top:0;
+}
+
+.alertGroup{
+  margin-top:10px;
+}
+
+.alertGroup ul{
+  margin:8px 0 0;
+  padding-left:18px;
+}
+
+.advisorCoursesSection{
+  margin-top:18px;
+}
+
+.advisorCourseTable{
+  margin-top:10px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:rgba(255,255,255,.02);
+}
+
+.advisorCourseTable__head,
+.advisorCourseTable__row{
+  display:grid;
+  grid-template-columns:140px minmax(0, 1fr) 80px;
+  gap:12px;
+  padding:12px 14px;
+  align-items:center;
+}
+
+.advisorCourseTable__head{
+  background:rgba(255,255,255,.05);
+  font-weight:800;
+  color:var(--text);
+}
+
+.advisorCourseTable__row{
+  border-top:1px solid var(--border);
+}
+
+.advisorFeedbackSection{
+  margin-top:18px;
+}
+
+.advisorTextarea{
+  width:100%;
+  resize:vertical;
+  min-height:140px;
+  margin-top:8px;
+}
+
+.advisorActionRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
+.statusBadge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:.82rem;
+  font-weight:700;
+  border:1px solid var(--border);
+  white-space:nowrap;
+}
+
+.statusBadge.pending{
+  color:#ffe08a;
+  background:rgba(245,197,66,.12);
+  border-color:rgba(245,197,66,.35);
+}
+
+.statusBadge.approved{
+  color:#7ee2a8;
+  background:rgba(46,204,113,.12);
+  border-color:rgba(46,204,113,.35);
+}
+
+.statusBadge.needs-changes{
+  color:#ff8f8f;
+  background:rgba(255,77,77,.12);
+  border-color:rgba(255,77,77,.35);
+}
+
+.statusBadge.submitted{
+  color:#9bb3ff;
+  background:rgba(79,124,255,.12);
+  border-color:rgba(79,124,255,.35);
+}
+
+.statusBadge.draft,
+.statusBadge.unknown{
+  color:var(--muted);
+  background:rgba(255,255,255,.04);
+}
+
+@media (max-width: 900px){
+  .advisorDashboard{
+    grid-template-columns:1fr;
+  }
+
+  .advisorDetailGrid{
+    grid-template-columns:1fr;
+  }
+
+  .advisorCourseTable__head,
+  .advisorCourseTable__row{
+    grid-template-columns:110px minmax(0, 1fr) 70px;
+  }
+}

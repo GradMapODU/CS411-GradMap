@@ -1,18 +1,4 @@
 // frontend/src/App.jsx
-// #region App Component
-// Acts as the main "controller" for the GradMap frontend (mock prototype)
-// RESPONSIBILITIES
-// - Tracks authentication/navigation state (login, register, app)
-// - Stores the active session (username + roles + active role)
-// - Renders the correct page based on the current view/role
-// - Wires child pages together with props + callbacks
-//
-// NOTES
-// - This is FRONTEND ONLY (no real backend).
-// - LoginPage/RegisterPage handle mock authentication logic.
-// - StudentDashboard/AdvisorQueue/AdminDashboard are the role-based views.
-// #endregion
-
 import { useState } from "react";
 
 import StudentDashboard from "./components/StudentDashboard.jsx";
@@ -25,10 +11,6 @@ import CourseCataloguePage from "./components/CourseCataloguePage.jsx";
 
 import { mockData } from "./data/mockData.js";
 import "./App.css";
-
-// ------------------------------
-// Placeholders
-// ------------------------------
 
 function AdvisingHubPage() {
   return (
@@ -63,16 +45,16 @@ function AdminDashboard() {
   );
 }
 
+function getTodayString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function App() {
-  // view: login | register | app
   const [view, setView] = useState("login");
-
-  // session -> username, roles, activeRole
   const [session, setSession] = useState(null);
-
-  // Student hamburger
-  const [studentPage, setStudentPage] = useState("dashboard"); // dashboard|gradplans|catalogue|availability|advising|resources
+  const [studentPage, setStudentPage] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [appData, setAppData] = useState(mockData);
 
   function loginSuccess(s) {
     setSession(s);
@@ -104,9 +86,83 @@ export default function App() {
     return (a + b).toUpperCase();
   }
 
-  // ------------------------------
-  // Auth views
-  // ------------------------------
+  function updateStudentPlan(studentId, planId, updater) {
+    setAppData((prev) => {
+      const student = prev.students?.[studentId];
+      if (!student) return prev;
+
+      const updatedPlans = (student.plan || []).map((plan) =>
+        plan.id === planId ? updater(plan) : plan
+      );
+
+      return {
+        ...prev,
+        students: {
+          ...prev.students,
+          [studentId]: {
+            ...student,
+            plan: updatedPlans,
+          },
+        },
+      };
+    });
+  }
+
+  function handleApprovePlan({ advisorId, studentId, planId, feedback }) {
+    const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
+    const reviewedOn = getTodayString();
+
+    updateStudentPlan(studentId, planId, (plan) => ({
+      ...plan,
+      status: "Approved",
+      advisorStatus: "Approved",
+      advisorFeedback: feedback || "Approved with no additional comments.",
+      reviewedBy: advisorName,
+      reviewedOn,
+    }));
+  }
+
+  function handleRequestChanges({ advisorId, studentId, planId, feedback }) {
+    const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
+    const reviewedOn = getTodayString();
+
+    updateStudentPlan(studentId, planId, (plan) => ({
+      ...plan,
+      status: "Needs Changes",
+      advisorStatus: "Needs Changes",
+      advisorFeedback: feedback,
+      reviewedBy: advisorName,
+      reviewedOn,
+    }));
+  }
+
+  function handleSubmitPlan() {
+    if (!session?.username) return;
+
+    const studentId = session.username;
+    const student = appData.students?.[studentId];
+    if (!student) return;
+
+    const firstDraftPlan = (student.plan || []).find(
+      (p) => p.status === "Draft" || p.status === "Awaiting Submission"
+    );
+
+    if (!firstDraftPlan) {
+      alert("No draft or awaiting-submission plan found.");
+      return;
+    }
+
+    updateStudentPlan(studentId, firstDraftPlan.id, (plan) => ({
+      ...plan,
+      status: "Submitted",
+      advisorStatus: "Pending",
+      submittedOn: getTodayString(),
+      advisorFeedback: "",
+      reviewedBy: "",
+      reviewedOn: "",
+    }));
+  }
+
   if (view === "login") {
     return (
       <div>
@@ -115,7 +171,10 @@ export default function App() {
         </header>
 
         <main className="layout">
-          <LoginPage onLoginSuccess={loginSuccess} onGoRegister={() => setView("register")} />
+          <LoginPage
+            onLoginSuccess={loginSuccess}
+            onGoRegister={() => setView("register")}
+          />
         </main>
       </div>
     );
@@ -129,29 +188,30 @@ export default function App() {
         </header>
 
         <main className="layout">
-          <RegisterPage onRegistered={() => setView("login")} onCancel={() => setView("login")} />
+          <RegisterPage
+            onRegistered={() => setView("login")}
+            onCancel={() => setView("login")}
+          />
         </main>
       </div>
     );
   }
 
-  // ------------------------------
-  // Main app view
-  // ------------------------------
   const activeRole = session?.activeRole || "student";
   const roles = session?.roles || ["student"];
 
   const studentRecord =
-    (session?.username && mockData.students?.[session.username]) || mockData.students?.student1;
+    (session?.username && appData.students?.[session.username]) ||
+    appData.students?.student1;
 
   const advisorRecord =
-    (session?.username && mockData.advisors?.[session.username]) || mockData.advisors?.advisor1;
+    (session?.username && appData.advisors?.[session.username]) ||
+    appData.advisors?.advisor1;
 
   const catalogueCourses =
-    mockData?.courseCatalog?.[studentRecord?.major] ||
-    mockData?.courseCatalog?.["Computer Science"] ||
+    appData?.courseCatalog?.[studentRecord?.major] ||
+    appData?.courseCatalog?.["Computer Science"] ||
     [];
-
 
   const showStudentSidebar = activeRole === "student";
 
@@ -159,7 +219,7 @@ export default function App() {
     { id: "dashboard", label: "Dashboard" },
     { id: "gradplans", label: "GradPlans" },
     { id: "catalogue", label: "Course Catalogue" },
-    { id: "availability", label: "My Availability" }, // ✅ added
+    { id: "availability", label: "My Availability" },
     { id: "advising", label: "Advising Hub" },
     { id: "resources", label: "Resources" },
   ];
@@ -175,7 +235,7 @@ export default function App() {
         return (
           <StudentDashboard
             student={studentRecord}
-            onSubmitPlan={() => alert("Mock: Plan submitted for advisor review!")}
+            onSubmitPlan={handleSubmitPlan}
           />
         );
       case "gradplans":
@@ -205,7 +265,6 @@ export default function App() {
 
   return (
     <div>
-      {/* Top bar */}
       <header className="topbar">
         <div className="topbarLeft">
           {showStudentSidebar && (
@@ -266,7 +325,6 @@ export default function App() {
         </nav>
       </header>
 
-      {/* Student sidebar (only when activeRole === "student") */}
       {showStudentSidebar && (
         <>
           <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
@@ -294,16 +352,23 @@ export default function App() {
             </div>
           </aside>
 
-          <div className={`sidebarOverlay ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)} />
+          <div
+            className={`sidebarOverlay ${menuOpen ? "open" : ""}`}
+            onClick={() => setMenuOpen(false)}
+          />
         </>
       )}
 
-      {/* Content */}
       <main className={`layout ${showStudentSidebar ? "layoutWithSidebar" : ""}`}>
         {activeRole === "student" ? (
           renderStudentPage()
         ) : activeRole === "advisor" ? (
-          <AdvisorQueue advisor={advisorRecord} onOpenSubmission={(name) => alert(`Mock: Opening submission for ${name}`)} />
+          <AdvisorQueue
+            advisor={advisorRecord}
+            students={appData.students}
+            onApprovePlan={handleApprovePlan}
+            onRequestChanges={handleRequestChanges}
+          />
         ) : (
           <AdminDashboard />
         )}

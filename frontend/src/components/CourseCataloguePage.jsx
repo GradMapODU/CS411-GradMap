@@ -111,8 +111,7 @@ export default function CourseCataloguePage({ student, courses = [] }) {
         <div>
           <h2>Course Catalogue</h2>
           <p className="muted catalogHero__subtitle">
-            Browse {major} courses, review prerequisites, and search by code,
-            title, or topic.
+            Browse {major} courses, review prerequisites, and search up classes.
           </p>
         </div>
 
@@ -124,7 +123,7 @@ export default function CourseCataloguePage({ student, courses = [] }) {
 
           <div className="catalogStat">
             <div className="catalogStat__value">{totalCredits}</div>
-            <div className="muted catalogStat__label">Visible Credits</div>
+            <div className="muted catalogStat__label">Visble Credits</div>
           </div>
         </div>
       </div>

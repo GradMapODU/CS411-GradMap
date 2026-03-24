@@ -1,7 +1,97 @@
 import { useMemo, useState } from "react";
 
+const EMPTY_ARRAY = [];
+
+function StatusBadge({ status }) {
+  const safe = status || "Unknown";
+  const className = `statusBadge ${safe
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z-]/g, "")}`;
+
+  return <span className={className}>{safe}</span>;
+}
+
+function formatDisplayDate(value) {
+  if (!value) return "—";
+
+  const d = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getInitials(name = "") {
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  const a = parts[0]?.[0] ?? "?";
+  const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (a + b).toUpperCase();
+}
+
+function normalizeStatus(status) {
+  const s = String(status || "").trim();
+  return s || "Draft";
+}
+
+function getPlanId(row, index) {
+  return String(row?.id ?? `${row?.term ?? "term"}-${index}`);
+}
+
+function getPlanCoursesText(courses) {
+  if (!Array.isArray(courses) || courses.length === 0) return "";
+
+  return courses
+    .map((course) => {
+      if (typeof course === "string") return course;
+      return course?.code || course?.title || "Untitled Course";
+    })
+    .join(", ");
+}
+
+function getPlanAlertLevel(plan, studentAlerts) {
+  const alerts = plan?.alerts || studentAlerts || {};
+
+  const infoCount = Array.isArray(alerts?.informative)
+    ? alerts.informative.length
+    : 0;
+  const warnCount = Array.isArray(alerts?.warnings)
+    ? alerts.warnings.length
+    : 0;
+  const urgCount = Array.isArray(alerts?.urgent) ? alerts.urgent.length : 0;
+
+  if (urgCount > 0) return "urgent";
+  if (warnCount > 0) return "warning";
+  if (infoCount > 0) return "info";
+  return "none";
+}
+
+function getPlanAlertTooltip(plan, studentAlerts) {
+  const alerts = plan?.alerts || studentAlerts || {};
+  const info = Array.isArray(alerts?.informative) ? alerts.informative : [];
+  const warn = Array.isArray(alerts?.warnings) ? alerts.warnings : [];
+  const urg = Array.isArray(alerts?.urgent) ? alerts.urgent : [];
+
+  const parts = [];
+  if (urg.length) parts.push(`Urgent: ${urg.join(" • ")}`);
+  if (warn.length) parts.push(`Warnings: ${warn.join(" • ")}`);
+  if (info.length) parts.push(`Informative: ${info.join(" • ")}`);
+
+  return parts.join(" | ");
+}
+
+function getAdvisorReviewText(plan) {
+  if (plan?.reviewedOn) return `Updated ${formatDisplayDate(plan.reviewedOn)}`;
+  if (plan?.submittedOn) return `Submitted ${formatDisplayDate(plan.submittedOn)}`;
+  return "Not submitted";
+}
+
 export default function StudentDashboard({ student, onSubmitPlan }) {
-  // ---------- Progress + classification ----------
+  const [selectedPlanIds, setSelectedPlanIds] = useState([]);
+
   const pctFromCredits =
     typeof student?.creditsEarned === "number" &&
     typeof student?.creditsRequired === "number" &&
@@ -18,12 +108,11 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     progressPct < 25
       ? "Freshman"
       : progressPct < 50
-      ? "Sophomore"
-      : progressPct < 75
-      ? "Junior"
-      : "Senior";
+        ? "Sophomore"
+        : progressPct < 75
+          ? "Junior"
+          : "Senior";
 
-  // ---------- Major + GPA ----------
   const major =
     student?.major || student?.program || student?.degreePlan || "Undeclared";
 
@@ -31,72 +120,102 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     typeof student?.gpa === "number"
       ? student.gpa.toFixed(2)
       : student?.gpa
-      ? String(student.gpa)
-      : "N/A";
+        ? String(student.gpa)
+        : "N/A";
 
-  // ---------- per-plan alert levels ----------
-  function getPlanAlertLevel(row) {
-    const a = row?.alerts;
-
-    const infoCount = Array.isArray(a?.informative) ? a.informative.length : 0;
-    const warnCount = Array.isArray(a?.warnings) ? a.warnings.length : 0;
-    const urgCount = Array.isArray(a?.urgent) ? a.urgent.length : 0;
-
-    if (urgCount > 0) return "urgent";
-    if (warnCount > 0) return "warning";
-    if (infoCount > 0) return "info";
-    return "none";
-  }
-
-  function getPlanAlertTooltip(row) {
-    const a = row?.alerts;
-    const info = Array.isArray(a?.informative) ? a.informative : [];
-    const warn = Array.isArray(a?.warnings) ? a.warnings : [];
-    const urg = Array.isArray(a?.urgent) ? a.urgent : [];
-
-    const parts = [];
-    if (urg.length) parts.push(`Urgent: ${urg.join(" • ")}`);
-    if (warn.length) parts.push(`Warnings: ${warn.join(" • ")}`);
-    if (info.length) parts.push(`Informative: ${info.join(" • ")}`);
-
-    return parts.join(" | ");
-  }
-
-  // ---------- Selection state ----------
-  const [selectedPlanIds, setSelectedPlanIds] = useState([]);
-
-  function getPlanId(row, index) {
-    return String(row?.id ?? `${row?.term ?? "term"}-${index}`);
-  }
-
-  const plans = useMemo(() => {
-    const plan = student?.plan;
-    return Array.isArray(plan) ? plan : [];
-  }, [student?.plan]);
+  const plans = Array.isArray(student?.plan) ? student.plan : EMPTY_ARRAY;
 
   const selectedPlans = useMemo(() => {
-    const set = new Set(selectedPlanIds);
-    return plans.filter((row, i) => set.has(getPlanId(row, i)));
-  }, [selectedPlanIds, plans]);
+      const idSet = new Set(selectedPlanIds);
+      return plans.filter((row, i) => idSet.has(getPlanId(row, i)));
+    }, [plans, selectedPlanIds]);
 
-  const selectedCount = selectedPlanIds.length;
+    const selectedCount = selectedPlans.length;
+    const selectedSinglePlan = selectedCount === 1 ? selectedPlans[0] : null;
 
-  const canSubmit = selectedCount >= 1;
+    const alertsSourcePlans = useMemo(() => {
+      return selectedCount > 0 ? selectedPlans : plans;
+    }, [plans, selectedCount, selectedPlans]);
+
+    const displayedPlanAlerts = useMemo(() => {
+    const merged = { informative: [], warnings: [], urgent: [] };
+
+    // No plans selected: show overall student alerts
+    if (selectedCount === 0) {
+      const sourceAlerts = student?.alerts || {};
+
+      if (Array.isArray(sourceAlerts?.informative)) {
+        merged.informative.push(...sourceAlerts.informative);
+      }
+      if (Array.isArray(sourceAlerts?.warnings)) {
+        merged.warnings.push(...sourceAlerts.warnings);
+      }
+      if (Array.isArray(sourceAlerts?.urgent)) {
+        merged.urgent.push(...sourceAlerts.urgent);
+      }
+
+      return merged;
+    }
+
+    // One or more plans selected: only use alerts that belong to those plans
+    for (const plan of alertsSourcePlans) {
+      const sourceAlerts = plan?.alerts || {};
+
+      if (Array.isArray(sourceAlerts?.informative)) {
+        merged.informative.push(...sourceAlerts.informative);
+      }
+      if (Array.isArray(sourceAlerts?.warnings)) {
+        merged.warnings.push(...sourceAlerts.warnings);
+      }
+      if (Array.isArray(sourceAlerts?.urgent)) {
+        merged.urgent.push(...sourceAlerts.urgent);
+      }
+    }
+
+    merged.informative = Array.from(new Set(merged.informative));
+    merged.warnings = Array.from(new Set(merged.warnings));
+    merged.urgent = Array.from(new Set(merged.urgent));
+
+    return merged;
+  }, [alertsSourcePlans, selectedCount, student?.alerts]);
+
+  const displayedUrgent = displayedPlanAlerts.urgent || [];
+  const displayedWarnings = displayedPlanAlerts.warnings || [];
+  const displayedInfo = displayedPlanAlerts.informative || [];
+
+  const alertsTitle =
+    selectedCount === 0
+      ? "Alerts - All Plans"
+      : selectedCount === 1
+        ? `Alerts - ${selectedSinglePlan?.term ?? "Selected Plan"}`
+        : "Alerts - Multiple Plans";
+
+  const submittablePlans = selectedPlans.filter((plan) => {
+    const status = normalizeStatus(plan?.status).toLowerCase();
+    return (
+      status === "draft" ||
+      status === "awaiting submission" ||
+      status === "needs changes"
+    );
+  });
+
+  const canSubmit = submittablePlans.length > 0;
   const canExportPdf = selectedCount >= 1;
   const canDelete = selectedCount >= 1;
   const canEdit = selectedCount === 1;
 
-  const submitLabel = selectedCount <= 1 ? "Submit Plan" : "Submit Plan(s)";
-  const deleteLabel = selectedCount <= 1 ? "Delete Plan" : "Delete Plan(s)";
+  const submitLabel =
+    submittablePlans.length > 1 ? "Submit Plan(s)" : "Submit Plan";
+  const deleteLabel = selectedCount > 1 ? "Delete Plan(s)" : "Delete Plan";
 
   function toggleSelect(row, index) {
     const id = getPlanId(row, index);
 
     setSelectedPlanIds((prev) => {
-      const set = new Set(prev);
-      if (set.has(id)) set.delete(id);
-      else set.add(id);
-      return Array.from(set);
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return Array.from(next);
     });
   }
 
@@ -104,20 +223,17 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     setSelectedPlanIds([]);
   }
 
-  // ---------- action handlers (mock-friendly) ----------
   function handleSubmitSelected() {
-    if (!selectedPlans.length) return;
+    if (!submittablePlans.length) return;
 
     if (typeof onSubmitPlan === "function") {
-      onSubmitPlan(selectedPlans);
-    } else {
-      console.log("Submit selected plans:", selectedPlans);
+      onSubmitPlan(submittablePlans);
     }
   }
 
   function handleEditSelected() {
-    if (selectedCount !== 1) return;
-    console.log("Edit plan:", selectedPlans[0]);
+    if (!selectedSinglePlan) return;
+    console.log("Edit plan:", selectedSinglePlan);
   }
 
   function handleDeleteSelected() {
@@ -130,76 +246,10 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     console.log("Export to PDF (mock):", selectedPlans);
   }
 
-  // ---------- helpers ----------
-  function normalizeStatus(s) {
-    const v = String(s || "").trim();
-    if (!v) return "In Progress";
-    return v;
-  }
-
-  function getInitials(name = "") {
-    const parts = String(name).trim().split(/\s+/).filter(Boolean);
-    const a = parts[0]?.[0] ?? "?";
-    const b = parts.length > 1 ? parts[parts.length - 1][0] : "";
-    return (a + b).toUpperCase();
-  }
-
-  function getStatusClass(status) {
-    const s = normalizeStatus(status).toLowerCase();
-
-    if (s.includes("histor")) return "status status--historical";
-    if (s.includes("completed")) return "status status--completed";
-    if (s.includes("awaiting review")) return "status status--review";
-    if (s.includes("submitted")) return "status status--submitted";
-    if (s.includes("awaiting submission")) return "status status--awaitsubmit";
-    if (s.includes("in progress")) return "status status--progress";
-    return "status";
-  }
-
-  // ---------- Alerts panel uses plans / selection ----------
-  const alertsSourcePlans = useMemo(() => {
-    if (selectedCount === 0) return plans;
-    return selectedPlans;
-  }, [selectedCount, plans, selectedPlans]);
-
-  function mergePlanAlerts(plansList) {
-    const merged = { informative: [], warnings: [], urgent: [] };
-
-    for (const p of plansList) {
-      const a = p?.alerts;
-
-      if (Array.isArray(a?.informative)) merged.informative.push(...a.informative);
-      if (Array.isArray(a?.warnings)) merged.warnings.push(...a.warnings);
-      if (Array.isArray(a?.urgent)) merged.urgent.push(...a.urgent);
-    }
-
-    merged.informative = Array.from(new Set(merged.informative));
-    merged.warnings = Array.from(new Set(merged.warnings));
-    merged.urgent = Array.from(new Set(merged.urgent));
-
-    return merged;
-  }
-
-  const displayedPlanAlerts = useMemo(() => {
-    return mergePlanAlerts(alertsSourcePlans);
-  }, [alertsSourcePlans]);
-
-  const alertsTitle = useMemo(() => {
-    if (selectedCount === 0) return "Alerts - All Plans";
-    if (selectedCount === 1)
-      return `Alerts - ${selectedPlans[0]?.term ?? "Selected Plan"}`;
-    return "Alerts - Multiple Plans";
-  }, [selectedCount, selectedPlans]);
-
-  const displayedUrgent = displayedPlanAlerts.urgent || [];
-  const displayedWarnings = displayedPlanAlerts.warnings || [];
-  const displayedInfo = displayedPlanAlerts.informative || [];
-
   return (
     <section className="card">
       <h2>Student Dashboard</h2>
 
-      {/* Profile header */}
       <div className="profileHeader">
         <div className="profileRow">
           <div className="avatar" aria-hidden="true">
@@ -277,6 +327,34 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
         </div>
       </div>
 
+      {selectedSinglePlan && (
+        <section className="panel studentPlanFeedbackPanel">
+          <div className="studentPlanFeedbackPanel__header">
+            <div>
+              <h3>Plan Review</h3>
+              <div className="muted">{selectedSinglePlan.term}</div>
+            </div>
+            <StatusBadge
+              status={selectedSinglePlan.advisorStatus || selectedSinglePlan.status}
+            />
+          </div>
+
+          <div className="studentPlanFeedbackPanel__meta muted">
+            <span>Submitted: {formatDisplayDate(selectedSinglePlan.submittedOn)}</span>
+            <span>Reviewed by: {selectedSinglePlan.reviewedBy || "—"}</span>
+            <span>Reviewed on: {formatDisplayDate(selectedSinglePlan.reviewedOn)}</span>
+          </div>
+
+          <div className="studentPlanFeedbackPanel__body">
+            <h4>Advisor Feedback</h4>
+            <p>
+              {selectedSinglePlan.advisorFeedback ||
+                "No advisor feedback has been posted for this plan yet."}
+            </p>
+          </div>
+        </section>
+      )}
+
       <h3>GradPlans</h3>
       <table className="table">
         <thead>
@@ -287,12 +365,13 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
             <th>Credits</th>
             <th>Alerts</th>
             <th>Status</th>
+            <th>Advisor Review</th>
           </tr>
         </thead>
 
         <tbody>
           {plans.map((row, i) => {
-            const level = getPlanAlertLevel(row);
+            const level = getPlanAlertLevel(row, student?.alerts);
             const id = getPlanId(row, i);
             const checked = selectedPlanIds.includes(id);
             const status = normalizeStatus(row?.status);
@@ -309,14 +388,14 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
                 </td>
 
                 <td>{row.term}</td>
-                <td>{Array.isArray(row.courses) ? row.courses.join(", ") : ""}</td>
+                <td>{getPlanCoursesText(row.courses)}</td>
                 <td>{row.credits}</td>
 
                 <td>
                   {level !== "none" ? (
                     <span
                       className={`planAlert planAlert--${level}`}
-                      title={getPlanAlertTooltip(row) || undefined}
+                      title={getPlanAlertTooltip(row, student?.alerts) || undefined}
                       aria-label={`${level} alert`}
                     >
                       ▲
@@ -329,7 +408,13 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
                 </td>
 
                 <td>
-                  <span className={getStatusClass(status)}>{status}</span>
+                  <StatusBadge status={status} />
+                </td>
+
+                <td>
+                  <div className="studentPlanReviewCell">
+                    <small>{getAdvisorReviewText(row)}</small>
+                  </div>
                 </td>
               </tr>
             );
@@ -337,7 +422,7 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
 
           {plans.length === 0 && (
             <tr>
-              <td colSpan={6} className="muted">
+              <td colSpan={7} className="muted">
                 No plans found.
               </td>
             </tr>
@@ -350,7 +435,11 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
           className="btn primary"
           onClick={handleSubmitSelected}
           disabled={!canSubmit}
-          title={!canSubmit ? "Select at least one plan." : undefined}
+          title={
+            !canSubmit
+              ? "Select a Draft, Awaiting Submission, or Needs Changes plan."
+              : undefined
+          }
         >
           {submitLabel}
         </button>

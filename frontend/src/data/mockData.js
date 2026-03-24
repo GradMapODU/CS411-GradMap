@@ -2,7 +2,13 @@
 // fake data for testing ui before backend exists
 // not perfect (some students use legacy alerts array on purpose)
 
+
+// -------------------------------
+// #region Mock Data
 export const mockData = {
+  // -------------------------------
+  // #region Students
+  // -------------------------------
   students: {
     student1: {
       name: "Jane Smith",
@@ -156,16 +162,35 @@ export const mockData = {
         {
           id: "plan-jane-fall-2026",
           term: "Fall 2026",
-          courses: ["CS 301", "CS 305", "MATH 230"],
+          courses: [
+            { code: "CS 301", title: "Discrete Mathematics", credits: 3 },
+            { code: "CS 305", title: "Software Engineering", credits: 3 },
+            { code: "MATH 230", title: "Calculus II", credits: 3 },
+          ],
           credits: 9,
-          status: "Awaiting Submission",
+          status: "Submitted",
+          submittedOn: "2026-02-13",
+          advisorStatus: "Pending",
+          advisorFeedback: "",
+          reviewedBy: "",
+          reviewedOn: "",
         },
         {
           id: "plan-jane-spring-2027",
           term: "Spring 2027",
-          courses: ["CS 350", "CS 381", "STAT 300", "PHIL 210"],
+          courses: [
+            { code: "CS 350", title: "Introduction to Networks", credits: 3 },
+            { code: "CS 381", title: "Discrete Structures", credits: 3 },
+            { code: "STAT 300", title: "Statistics", credits: 3 },
+            { code: "PHIL 210", title: "Ethics", credits: 3 },
+          ],
           credits: 12,
           status: "Draft",
+          submittedOn: "",
+          advisorStatus: "",
+          advisorFeedback: "",
+          reviewedBy: "",
+          reviewedOn: "",
         },
       ],
 
@@ -205,10 +230,10 @@ export const mockData = {
       },
 
       advisorNotes: {
-        advisorName: "Dr. Emily Chen",
+        advisorName: "Matthew Haydon",
         message:
           "Hi Jane, remember to review the course catalogue for elective options for Spring 2027. Let's schedule a brief chat next week to finalize your plan.",
-        date: "October 26, 2024",
+        date: "February 13, 2026",
       },
     },
 
@@ -366,16 +391,35 @@ export const mockData = {
         {
           id: "plan-dani-spring-2026",
           term: "Spring 2026",
-          courses: ["CS 250", "MATH 211", "ENGL 211C"],
+          courses: [
+            { code: "CS 250", title: "Intro to Programming", credits: 4 },
+            { code: "MATH 211", title: "Calculus III", credits: 3 },
+            { code: "ENGL 211C", title: "Writing & Research", credits: 3 },
+          ],
           credits: 10,
-          status: "Awaiting Submission",
+          status: "Needs Changes",
+          submittedOn: "2026-02-12",
+          advisorStatus: "Needs Changes",
+          advisorFeedback:
+            "Please replace one course with a writing requirement and confirm CS 250 sequencing.",
+          reviewedBy: "Matthew Haydon",
+          reviewedOn: "2026-02-14",
         },
         {
           id: "plan-dani-fall-2026",
           term: "Fall 2026",
-          courses: ["CS 252", "STAT 330", "CYSE 300"],
+          courses: [
+            { code: "CS 252", title: "Unix for Programmers", credits: 3 },
+            { code: "STAT 330", title: "Probability & Statistics", credits: 3 },
+            { code: "CYSE 300", title: "Intro to Cybersecurity", credits: 3 },
+          ],
           credits: 9,
           status: "Awaiting Submission",
+          submittedOn: "",
+          advisorStatus: "",
+          advisorFeedback: "",
+          reviewedBy: "",
+          reviewedOn: "",
         },
       ],
 
@@ -409,7 +453,7 @@ export const mockData = {
       },
 
       advisorNotes: {
-        advisorName: "Dr. Robert Lane",
+        advisorName: "Matthew Haydon",
         message:
           "Focus on completing CS 250 as soon as possible so you can stay on track for CS 361. We should also review your upper-level writing requirement soon.",
         date: "February 14, 2026",
@@ -417,38 +461,46 @@ export const mockData = {
     },
   },
 
+  // #endregion ----------------------
+  // -------------------------------
+  // #region Advisors
   advisors: {
     advisor1: {
+      id: "advisor1",
       name: "Matthew Haydon",
+      assignedStudents: ["student1", "student2"],
       submissions: [
-        { student: "Ivan Gunn", submitted: "Feb 13, 2026", status: "Pending" },
         {
-          student: "Alyssa Chen",
-          submitted: "Feb 12, 2026",
-          status: "Needs changes",
+          id: "submission-1",
+          studentId: "student1",
+          planId: "plan-jane-fall-2026",
+        },
+        {
+          id: "submission-2",
+          studentId: "student2",
+          planId: "plan-dani-spring-2026",
         },
       ],
     },
 
     advisor2: {
+      id: "advisor2",
       name: "Brice Bounds",
-      submissions: [
-        {
-          student: "Marcus Reed",
-          submitted: "Feb 10, 2026",
-          status: "Pending",
-        },
-        { student: "Ivan Gunn", submitted: "Feb 09, 2026", status: "Approved" },
-      ],
+      assignedStudents: [],
+      submissions: [],
     },
   },
-
+  // #endregion ----------------------
+  // -------------------------------
+  // #region Admins
   admins: {
-    admins: {
+    admin1: {
       name: "Prof. Sanober",
     },
   },
-
+  // #endregion ----------------------
+  // -------------------------------
+  // #region Course Catalog
   courseCatalog: {
     "Computer Science": [
       {
@@ -902,7 +954,12 @@ export const mockData = {
       },
     ],
   },
+  // #endregion ----------------------
+  // -------------------------------
 };
+// #endregion
+// -------------------------------
+
 
 // Possible mock data for other thingys? Like course and degree plans 
 // Course
