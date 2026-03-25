@@ -215,19 +215,22 @@ export const mockData = {
         },
       ],
 
-      degreeRequirements: {
-        generalEducation: [
-          "ENGL 101",
-          "ENGL 102",
-          "HIST 100",
-          "CHEM 110",
-          "PHYS 201",
-        ],
-        majorCore: ["CS 101", "CS 301", "CS 305", "MATH 150", "MATH 230"],
-        electives: ["PHIL 210", "STAT 300"],
-        interdisciplinary: [],
-        capstone: [],
-      },
+      selectedDegreeProgramId: "bs-computer-science",
+      completedCourses: ["CS 150", "CS 252", "CS 330", "MATH 163", "ENGL 110C"],
+      degreeRequirementProgress: [
+        {
+          requirementId: "cs350",
+          status: "planned",
+          appliedCourses: ["CS 350"],
+        },
+        {
+          requirementId: "cs-electives-upper-level",
+          status: "in-progress",
+          appliedCourses: ["CS 450", "CS 417", "CS 470"],
+          appliedCredits: 9,
+          remainingCredits: 3,
+        },
+      ],
 
       advisorNotes: {
         advisorName: "Matthew Haydon",
@@ -444,13 +447,20 @@ export const mockData = {
         },
       ],
 
-      degreeRequirements: {
-        generalEducation: ["ENGL 101", "ENGL 102", "HIST 104", "MATH 162M"],
-        majorCore: ["CS 250", "CS 252", "CS 361", "CYSE 300", "CYSE 301"],
-        electives: ["STAT 330", "COMM 200"],
-        interdisciplinary: [],
-        capstone: [],
-      },
+      selectedDegreeProgramId: "bs-cybersecurity",
+      completedCourses: ["ENGL 110C", "MATH 162M", "CS 150"],
+      degreeRequirementProgress: [
+        {
+          requirementId: "cyse300",
+          status: "planned",
+          appliedCourses: ["CYSE 300"],
+        },
+        {
+          requirementId: "cyse-analytics-or-network",
+          status: "not-started",
+          appliedCourses: [],
+        },
+      ],
 
       advisorNotes: {
         advisorName: "Matthew Haydon",
@@ -458,6 +468,287 @@ export const mockData = {
           "Focus on completing CS 250 as soon as possible so you can stay on track for CS 361. We should also review your upper-level writing requirement soon.",
         date: "February 14, 2026",
       },
+    },
+  },
+
+  // #endregion ----------------------
+  // -------------------------------
+  // #region Degree Programs
+  // Defines all courses and information used for an entire degree
+
+  // ~ DegreeProgram - Represents a single academic degree program.
+  //   This object is the root structure used by the planner. It defines how many semesters to generate,
+  //   how many credits per semester, and what requirements must be satisfied.
+  // ~~ id (string) - Unique identifier for the degree program (used by students and planner).
+  // ~~ name (string) - Display name of the degree.
+  // ~~ department (string) - Academic department offering the degree.
+  // ~~ totalCreditsRequired (number) - Total credits required to graduate.
+  // ~~ planningHorizonSemesters (number) - Number of semesters the planner should generate (typically 4).
+  // ~~ defaultSemesterCreditTarget (number) - Target number of credits per semester.
+  // ~~ requirementGroups (RequirementGroup[]) - Collection of grouped degree requirements.
+  // ~~ sampleGeneratedPlan (GeneratedSemester[]) - Example generated plan used for UI/testing.
+
+  // ~ RequirementGroup - Groups related requirements together (e.g., Core, Electives).
+  //   Used for organizing requirements in the UI and simplifying planner logic.
+  // ~~ id (string) - Unique identifier for the requirement group.
+  // ~~ label (string) - Display name used in the UI.
+  // ~~ description (string, optional) - Explains the purpose of the group.
+  // ~~ requirements (Requirement[]) - List of requirements in this group.
+
+  // ~ Requirement - Represents a single degree requirement that must be satisfied by one or more courses.
+  //   Supports multiple requirement types that define how courses fulfill it.
+  // ~~ id (string) - Unique identifier used for tracking progress.
+  // ~~ type (string) - Defines requirement behavior.
+  //    Possible values:
+  //      - "exact-course" → Must take a specific course
+  //      - "choose-one" → Must pick one course from a set
+  //      - "course-pool" → Flexible selection from a pool of courses
+  // ~~ label (string) - Human-readable description of the requirement.
+  // ~~ minCourses (number) - Minimum number of courses required to satisfy this requirement.
+  // ~~ minCredits (number) - Minimum number of credits required.
+  // ~~ allowedCourses (string[]) - List of valid course codes that can satisfy this requirement.
+  // ~~ selectionRules (SelectionRules, optional) - Additional filtering or constraint logic.
+
+  // ~ SelectionRules - Provides additional constraints for filtering courses dynamically.
+  // ~~ department (string) - Restricts selection to a specific department (e.g., "CS").
+  // ~~ levels (number[]) - Restricts courses to specific levels (e.g., 300, 400).
+  // ~~ excludeCourses (string[]) - List of course codes that should be excluded.
+  // ~~ notes (string[]) - Additional notes for UI display (not enforced in logic).
+
+  // ~ GeneratedSemester - Represents a single semester in a generated academic plan.
+  //   Used for previewing planner output and validating requirement satisfaction.
+  // ~~ id (string) - Unique identifier for the semester.
+  // ~~ term (string) - Display term (e.g., "Fall 2026").
+  // ~~ plannedCredits (number) - Total credits scheduled for the semester.
+  // ~~ courses (string[]) - List of course codes in the semester.
+  // ~~ satisfiesRequirementIds (string[]) - Requirement IDs that this semester contributes toward satisfying.
+
+  // ~ Planner Flow (Conceptual)
+  //   Describes how the system uses this structure:
+  // ~~ Step 1: Student selects a degree → selectedDegreeProgramId
+  // ~~ Step 2: System loads DegreeProgram from degreePrograms
+  // ~~ Step 3: Planner iterates through requirementGroups
+  // ~~ Step 4: Courses are selected from allowedCourses using rules
+  // ~~ Step 5: Courses are distributed across semesters
+  // ~~ Step 6: Progress is tracked using requirement IDs
+  
+  degreePrograms: {
+    "bs-computer-science": {
+      id: "bs-computer-science",
+      name: "B.S. Computer Science",
+      department: "Computer Science",
+      totalCreditsRequired: 120,
+      planningHorizonSemesters: 4,
+      defaultSemesterCreditTarget: 12,
+      requirementGroups: [
+        {
+          id: "software-engineering-core",
+          label: "Software Engineering Core",
+          description: "Specific major requirements that must be completed exactly as listed.",
+          requirements: [
+            {
+              id: "cs350",
+              type: "exact-course",
+              label: "CS 350 - Introduction to Software Engineering",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CS 350"],
+            },
+            {
+              id: "cs410",
+              type: "exact-course",
+              label: "CS 410 - Professional Workforce Development I",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CS 410"],
+            },
+            {
+              id: "cs411w",
+              type: "exact-course",
+              label: "CS 411W - Professional Workforce Development II",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CS 411W"],
+            },
+          ],
+        },
+        {
+          id: "upper-level-electives",
+          label: "Upper-Level Computer Science Electives",
+          description: "Flexible requirement groups where several courses may satisfy the same rule.",
+          requirements: [
+            {
+              id: "cs-electives-upper-level",
+              type: "course-pool",
+              label: "12 Credits - CS 300/400-level electives excluding CS 300T, CS 334 & 382",
+              minCourses: 4,
+              minCredits: 12,
+              selectionRules: {
+                department: "CS",
+                levels: [300, 400],
+                excludeCourses: ["CS 300T", "CS 334", "CS 382"],
+                notes: [
+                  "One of CS 450 or CS 418 is required. The other may also count as an elective.",
+                  "CS 367 or CS 368 internship may be used when approved by the degree."
+                ],
+              },
+              allowedCourses: [
+                "CS 462",
+                "CS 463",
+                "CS 464",
+                "CS 465",
+                "CS 466",
+                "CS 467",
+                "CS 469",
+                "CS 450",
+                "CS 422",
+                "CS 432",
+                "CS 480",
+                "CS 460",
+                "CS 491",
+                "CS 492",
+                "CS 499W",
+                "CS 455",
+                "CS 472",
+                "CS 486",
+                "CS 487",
+                "CS 476",
+                "CS 312",
+                "CS 418",
+                "CS 431",
+                "CS 441",
+                "CS 478",
+                "CS 488",
+                "CS 367",
+                "CS 368",
+              ],
+            },
+            {
+              id: "cs450-or-cs418",
+              type: "choose-one",
+              label: "One of CS 450 - Database Concepts or CS 418 - Web Programming",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CS 450", "CS 418"],
+            },
+          ],
+        },
+      ],
+      sampleGeneratedPlan: [
+        {
+          id: "gen-cs-fall-2026",
+          term: "Fall 2026",
+          plannedCredits: 12,
+          courses: ["CS 350", "CS 450", "CS 455", "CS 312"],
+          satisfiesRequirementIds: ["cs350", "cs450-or-cs418", "cs-electives-upper-level"],
+        },
+        {
+          id: "gen-cs-spring-2027",
+          term: "Spring 2027",
+          plannedCredits: 12,
+          courses: ["CS 410", "CS 422", "CS 432", "CS 476"],
+          satisfiesRequirementIds: ["cs410", "cs-electives-upper-level"],
+        },
+        {
+          id: "gen-cs-fall-2027",
+          term: "Fall 2027",
+          plannedCredits: 12,
+          courses: ["CS 411W", "CS 460", "CS 462", "CS 480"],
+          satisfiesRequirementIds: ["cs411w", "cs-electives-upper-level"],
+        },
+        {
+          id: "gen-cs-spring-2028",
+          term: "Spring 2028",
+          plannedCredits: 12,
+          courses: ["CS 463", "CS 466", "CS 478", "CS 488"],
+          satisfiesRequirementIds: ["cs-electives-upper-level"],
+        },
+      ],
+    },
+
+    "bs-cybersecurity": {
+      id: "bs-cybersecurity",
+      name: "B.S. Cybersecurity",
+      department: "Cybersecurity",
+      totalCreditsRequired: 120,
+      planningHorizonSemesters: 4,
+      defaultSemesterCreditTarget: 9,
+      requirementGroups: [
+        {
+          id: "cyber-core",
+          label: "Cybersecurity Core",
+          requirements: [
+            {
+              id: "cyse300",
+              type: "exact-course",
+              label: "CYSE 300 - Introduction to Cybersecurity",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CYSE 300"],
+            },
+            {
+              id: "cyse301",
+              type: "exact-course",
+              label: "CYSE 301 - Cyber Defense Fundamentals",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CYSE 301"],
+            },
+            {
+              id: "cyse406",
+              type: "exact-course",
+              label: "CYSE 406 - Network Security",
+              minCourses: 1,
+              minCredits: 3,
+              allowedCourses: ["CYSE 406"],
+            },
+          ],
+        },
+        {
+          id: "cyber-track-flex",
+          label: "Cyber Track Flex Requirement",
+          requirements: [
+            {
+              id: "cyse-analytics-or-network",
+              type: "course-pool",
+              label: "Choose 6 credits from approved cybersecurity analytics or network-focused electives",
+              minCourses: 2,
+              minCredits: 6,
+              allowedCourses: ["CYSE 425", "CYSE 406", "CS 469", "CS 455", "CS 472"],
+            },
+          ],
+        },
+      ],
+      sampleGeneratedPlan: [
+        {
+          id: "gen-cyse-fall-2026",
+          term: "Fall 2026",
+          plannedCredits: 9,
+          courses: ["CYSE 300", "CS 252", "STAT 330"],
+          satisfiesRequirementIds: ["cyse300"],
+        },
+        {
+          id: "gen-cyse-spring-2027",
+          term: "Spring 2027",
+          plannedCredits: 9,
+          courses: ["CYSE 301", "CS 361", "COMM 200"],
+          satisfiesRequirementIds: ["cyse301"],
+        },
+        {
+          id: "gen-cyse-fall-2027",
+          term: "Fall 2027",
+          plannedCredits: 9,
+          courses: ["CYSE 406", "CYSE 425", "CS 455"],
+          satisfiesRequirementIds: ["cyse406", "cyse-analytics-or-network"],
+        },
+        {
+          id: "gen-cyse-spring-2028",
+          term: "Spring 2028",
+          plannedCredits: 9,
+          courses: ["CS 469", "CS 472", "ENGL 211C"],
+          satisfiesRequirementIds: ["cyse-analytics-or-network"],
+        },
+      ],
     },
   },
 
@@ -827,7 +1118,249 @@ export const mockData = {
         tags: ["Numerical Methods", "Scientific Computing", "Algorithms"],
       },
       {
-        code: "CS 418/518",
+        code: "CS 450",
+        title: "Database Concepts",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Introduces relational database design, SQL, normalization, and data management concepts.",
+        prerequisites: "CS 330 or permission of instructor",
+        tags: ["Database", "SQL", "Data Management"],
+      },
+      {
+        code: "CS 455",
+        title: "Introduction to Networks and Communications",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Studies network architecture, protocols, communication models, and distributed connectivity.",
+        prerequisites: "CS 361 or equivalent",
+        tags: ["Networks", "Communications", "Systems"],
+      },
+      {
+        code: "CS 460",
+        title: "Computer Graphics",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Covers rendering, geometric modeling, transformations, and interactive graphics systems.",
+        prerequisites: "CS 361",
+        tags: ["Graphics", "Visualization", "Game Development"],
+      },
+      {
+        code: "CS 462",
+        title: "Cybersecurity Fundamentals",
+        credits: 3,
+        level: "400",
+        format: "Lecture",
+        description:
+          "Surveys core cybersecurity principles including threats, risk, controls, and secure design.",
+        prerequisites: "CS 361 or CYSE 300",
+        tags: ["Cybersecurity", "Security", "Foundations"],
+      },
+      {
+        code: "CS 463",
+        title: "Cryptography for Cybersecurity",
+        credits: 3,
+        level: "400",
+        format: "Lecture",
+        description:
+          "Introduces classical and modern cryptographic systems with applications to secure computing.",
+        prerequisites: "CS 381",
+        tags: ["Cryptography", "Cybersecurity", "Security"],
+      },
+      {
+        code: "CS 464",
+        title: "Networked Systems Security",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Focuses on securing networked systems through monitoring, hardening, and attack analysis.",
+        prerequisites: "CS 455 or CYSE 301",
+        tags: ["Security", "Networks", "Systems"],
+      },
+      {
+        code: "CS 465",
+        title: "Information Assurance",
+        credits: 3,
+        level: "400",
+        format: "Lecture",
+        description:
+          "Explores policy, governance, risk management, and assurance practices for information systems.",
+        prerequisites: "CS 462 or CYSE 300",
+        tags: ["Information Assurance", "Policy", "Security"],
+      },
+      {
+        code: "CS 466",
+        title: "Principles and Practice of Cyber Defense",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Applies defensive cybersecurity techniques including monitoring, response, and hardening.",
+        prerequisites: "CS 462 or CYSE 301",
+        tags: ["Cyber Defense", "Blue Team", "Security"],
+      },
+      {
+        code: "CS 467",
+        title: "Introduction to Reverse Software Engineering",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Introduces reverse engineering workflows for binaries, malware analysis, and code recovery.",
+        prerequisites: "CS 361",
+        tags: ["Reverse Engineering", "Security", "Systems"],
+      },
+      {
+        code: "CS 469",
+        title: "Data Analytics for Cybersecurity",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Uses data analytics and visualization methods to identify and analyze cybersecurity events.",
+        prerequisites: "STAT 330 and CS 361",
+        tags: ["Analytics", "Cybersecurity", "Data Science"],
+      },
+      {
+        code: "CS 472",
+        title: "Network and Security",
+        credits: 3,
+        level: "400",
+        format: "Lecture",
+        description:
+          "Examines advanced networking topics with emphasis on security models, attacks, and defenses.",
+        prerequisites: "CS 455",
+        tags: ["Networks", "Security", "Infrastructure"],
+      },
+      {
+        code: "CS 476",
+        title: "Systems Programming",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Builds low-level software using process control, memory management, concurrency, and OS interfaces.",
+        prerequisites: "CS 252 and CS 361",
+        tags: ["Systems", "Programming", "Operating Systems"],
+      },
+      {
+        code: "CS 478",
+        title: "Computational Geometry, Methods and Applications",
+        credits: 3,
+        level: "400",
+        format: "Lecture",
+        description:
+          "Explores algorithms for geometric computation and their applications in modeling and analysis.",
+        prerequisites: "CS 361 and MATH 211",
+        tags: ["Geometry", "Algorithms", "Computation"],
+      },
+      {
+        code: "CS 480",
+        title: "Introduction to Artificial Intelligence",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Introduces intelligent agents, search, reasoning, and foundational artificial intelligence techniques.",
+        prerequisites: "CS 361 and CS 381",
+        tags: ["AI", "Intelligent Systems", "Data Science"],
+      },
+      {
+        code: "CS 486",
+        title: "Introduction to Parallel Computing",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Introduces parallel architectures, decomposition strategies, and parallel program design.",
+        prerequisites: "CS 361",
+        tags: ["Parallel Computing", "Systems", "Performance"],
+      },
+      {
+        code: "CS 487",
+        title: "Applied Parallel Computing",
+        credits: 3,
+        level: "400",
+        format: "Lecture + Lab",
+        description:
+          "Applies practical techniques for scalable parallel programming and performance tuning.",
+        prerequisites: "CS 486",
+        tags: ["Parallel Computing", "HPC", "Performance"],
+      },
+      {
+        code: "CS 488",
+        title: "Principles of Compiler Construction",
+        credits: 3,
+        level: "400",
+        format: "Lecture",
+        description:
+          "Studies lexical analysis, parsing, semantic analysis, code generation, and compiler organization.",
+        prerequisites: "CS 355",
+        tags: ["Compilers", "Programming Languages", "Systems"],
+      },
+      {
+        code: "CS 491",
+        title: "Honors Research I",
+        credits: 3,
+        level: "400",
+        format: "Independent Study",
+        description:
+          "Supports mentored honors research in computer science through proposal and initial investigation.",
+        prerequisites: "Honors College standing and department approval",
+        tags: ["Honors", "Research", "Independent Study"],
+      },
+      {
+        code: "CS 492",
+        title: "Honors Research II",
+        credits: 3,
+        level: "400",
+        format: "Independent Study",
+        description:
+          "Continues honors research work with emphasis on analysis, writing, and final deliverables.",
+        prerequisites: "CS 491",
+        tags: ["Honors", "Research", "Independent Study"],
+      },
+      {
+        code: "CS 499W",
+        title: "Honors Thesis in Computer Science",
+        credits: 3,
+        level: "400",
+        format: "Independent Study",
+        description:
+          "Culminating honors thesis experience focused on substantial written and technical work.",
+        prerequisites: "CS 492 and Honors College standing",
+        tags: ["Honors", "Thesis", "Writing Intensive"],
+      },
+      {
+        code: "CS 367",
+        title: "Computer Science Internship",
+        credits: 3,
+        level: "300",
+        format: "Internship",
+        description:
+          "Supervised professional internship experience in computer science and related industry work.",
+        prerequisites: "Department approval",
+        tags: ["Internship", "Experiential Learning", "Professional"],
+      },
+      {
+        code: "CS 368",
+        title: "Computer Science Internship",
+        credits: 3,
+        level: "300",
+        format: "Internship",
+        description:
+          "Advanced supervised internship experience with reflective and professional development components.",
+        prerequisites: "Department approval",
+        tags: ["Internship", "Experiential Learning", "Professional"],
+      },
+      {
+        code: "CS 418",
         title: "Web Programming",
         credits: 3,
         level: "400",
@@ -838,19 +1371,18 @@ export const mockData = {
         tags: ["Web", "Full Stack", "Internet"],
       },
       {
-        code: "CS 422/522",
-        title: "Introduction to Machine Learning",
+        code: "CS 431",
+        title: "Web Server Design",
         credits: 3,
         level: "400",
         format: "Lecture + Lab",
         description:
-          "Introduces practical machine learning methods with emphasis on core models, data handling, and applied problem solving.",
-        prerequisites:
-          "MATH 316, STAT 330, and a grade of C or better in CS 153 or CS 263",
-        tags: ["Machine Learning", "AI", "Data"],
+          "Examines server-side web systems, hosting architectures, APIs, and scalable web service design.",
+        prerequisites: "CS 312 and CS 330",
+        tags: ["Web", "Servers", "Backend"],
       },
       {
-        code: "CS 432/532",
+        code: "CS 432",
         title: "Web Science",
         credits: 3,
         level: "400",
@@ -862,18 +1394,7 @@ export const mockData = {
         tags: ["Web", "Information Systems", "Decentralized Systems"],
       },
       {
-        code: "CS 433/533",
-        title: "Web Security",
-        credits: 3,
-        level: "400",
-        format: "Lecture",
-        description:
-          "Studies web security principles, common attacks, and defensive techniques for modern web systems.",
-        prerequisites: "A grade of C or better in CS 312 and CS 330",
-        tags: ["Security", "Web", "Cybersecurity"],
-      },
-      {
-        code: "CS 441/541",
+        code: "CS 441",
         title: "App Development for Smart Devices",
         credits: 3,
         level: "400",
@@ -915,9 +1436,9 @@ export const mockData = {
         level: "300",
         format: "Lecture + Lab",
         description:
-          "Covers practical defensive techniques, system hardening, and incident response fundamentals.",
+          "Builds practical defensive security skills including monitoring, incident response, and system hardening.",
         prerequisites: "CYSE 300",
-        tags: ["Defense", "Security", "Hands-On"],
+        tags: ["Cyber Defense", "Security", "Hands-On"],
       },
       {
         code: "CYSE 305",
@@ -957,9 +1478,6 @@ export const mockData = {
   // #endregion ----------------------
   // -------------------------------
 };
-// #endregion
-// -------------------------------
-
 
 // Possible mock data for other thingys? Like course and degree plans 
 // Course
@@ -978,13 +1496,17 @@ export const mockData = {
 //   courses: [Course, Course]
 // }
 
-// Degree Requirements
+// Degree Requirement Object
 // {
-//   generalEducation: ["ENGL 101", "ENGL 102"],
-//   majorCore: ["CS 101", "CS 301"],
-//   electives: ["PHIL 210"],
-//   interdisciplinary: [],
-//   capstone: []
+//   id: "cs-electives-upper-level",
+//   type: "course-pool", // exact-course | choose-one | course-pool
+//   label: "12 Credits - CS 300/400-level electives excluding CS 300T, CS 334 & 382",
+//   minCourses: 4,
+//   minCredits: 12,
+//   allowedCourses: ["CS 450", "CS 418", "CS 422"],
+//   selectionRules: {
+//     excludeCourses: ["CS 300T", "CS 334", "CS 382"],
+//   }
 // }
 
 // Advisor Note
