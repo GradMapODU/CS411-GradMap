@@ -1,9 +1,5 @@
 // frontend/data/mockData.js
-// fake data for testing ui before backend exists
-// not perfect (some students use legacy alerts array on purpose)
 
-
-// -------------------------------
 // #region Mock Data
 export const mockData = {
   // -------------------------------
@@ -475,7 +471,6 @@ export const mockData = {
   // -------------------------------
   // #region Degree Programs
   // Defines all courses and information used for an entire degree
-
   // ~ DegreeProgram - Represents a single academic degree program.
   //   This object is the root structure used by the planner. It defines how many semesters to generate,
   //   how many credits per semester, and what requirements must be satisfied.
@@ -488,50 +483,6 @@ export const mockData = {
   // ~~ requirementGroups (RequirementGroup[]) - Collection of grouped degree requirements.
   // ~~ sampleGeneratedPlan (GeneratedSemester[]) - Example generated plan used for UI/testing.
 
-  // ~ RequirementGroup - Groups related requirements together (e.g., Core, Electives).
-  //   Used for organizing requirements in the UI and simplifying planner logic.
-  // ~~ id (string) - Unique identifier for the requirement group.
-  // ~~ label (string) - Display name used in the UI.
-  // ~~ description (string, optional) - Explains the purpose of the group.
-  // ~~ requirements (Requirement[]) - List of requirements in this group.
-
-  // ~ Requirement - Represents a single degree requirement that must be satisfied by one or more courses.
-  //   Supports multiple requirement types that define how courses fulfill it.
-  // ~~ id (string) - Unique identifier used for tracking progress.
-  // ~~ type (string) - Defines requirement behavior.
-  //    Possible values:
-  //      - "exact-course" → Must take a specific course
-  //      - "choose-one" → Must pick one course from a set
-  //      - "course-pool" → Flexible selection from a pool of courses
-  // ~~ label (string) - Human-readable description of the requirement.
-  // ~~ minCourses (number) - Minimum number of courses required to satisfy this requirement.
-  // ~~ minCredits (number) - Minimum number of credits required.
-  // ~~ allowedCourses (string[]) - List of valid course codes that can satisfy this requirement.
-  // ~~ selectionRules (SelectionRules, optional) - Additional filtering or constraint logic.
-
-  // ~ SelectionRules - Provides additional constraints for filtering courses dynamically.
-  // ~~ department (string) - Restricts selection to a specific department (e.g., "CS").
-  // ~~ levels (number[]) - Restricts courses to specific levels (e.g., 300, 400).
-  // ~~ excludeCourses (string[]) - List of course codes that should be excluded.
-  // ~~ notes (string[]) - Additional notes for UI display (not enforced in logic).
-
-  // ~ GeneratedSemester - Represents a single semester in a generated academic plan.
-  //   Used for previewing planner output and validating requirement satisfaction.
-  // ~~ id (string) - Unique identifier for the semester.
-  // ~~ term (string) - Display term (e.g., "Fall 2026").
-  // ~~ plannedCredits (number) - Total credits scheduled for the semester.
-  // ~~ courses (string[]) - List of course codes in the semester.
-  // ~~ satisfiesRequirementIds (string[]) - Requirement IDs that this semester contributes toward satisfying.
-
-  // ~ Planner Flow (Conceptual)
-  //   Describes how the system uses this structure:
-  // ~~ Step 1: Student selects a degree → selectedDegreeProgramId
-  // ~~ Step 2: System loads DegreeProgram from degreePrograms
-  // ~~ Step 3: Planner iterates through requirementGroups
-  // ~~ Step 4: Courses are selected from allowedCourses using rules
-  // ~~ Step 5: Courses are distributed across semesters
-  // ~~ Step 6: Progress is tracked using requirement IDs
-  
   degreePrograms: {
     "bs-computer-science": {
       id: "bs-computer-science",
@@ -1478,40 +1429,5 @@ export const mockData = {
   // #endregion ----------------------
   // -------------------------------
 };
+// #endregion ----------------------
 
-// Possible mock data for other thingys? Like course and degree plans 
-// Course
-// {
-//   code: "CS 301",
-//   title: "Discrete Mathematics",
-//   credits: 3,
-//   status: "Planned" // Planned | Enrolled | Completed | In Progress
-// }
-
-// GradPlan
-// {
-//   id: "fall-2026",
-//   term: "Fall 2026",
-//   plannedCredits: 9,
-//   courses: [Course, Course]
-// }
-
-// Degree Requirement Object
-// {
-//   id: "cs-electives-upper-level",
-//   type: "course-pool", // exact-course | choose-one | course-pool
-//   label: "12 Credits - CS 300/400-level electives excluding CS 300T, CS 334 & 382",
-//   minCourses: 4,
-//   minCredits: 12,
-//   allowedCourses: ["CS 450", "CS 418", "CS 422"],
-//   selectionRules: {
-//     excludeCourses: ["CS 300T", "CS 334", "CS 382"],
-//   }
-// }
-
-// Advisor Note
-// {
-//   advisorName: "Dr. Emily Chen",
-//   message: "...",
-//   date: "October 26, 2024"
-// }
