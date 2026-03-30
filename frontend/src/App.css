@@ -1,9 +1,9 @@
 /* =========================================================
-   GradMap - App.css (Full)
-   - Dark theme base + layout + components + auth additions
-   ========================================================= */
+   GradMap - App.css
+   - Dark blue ish theme
+========================================================= */
 
-/* ---------- Theme tokens ---------- */
+/* ---------- Theme ---------- */
 :root{
   --bg:#0b1220;
   --card:#121b2f;
@@ -13,7 +13,7 @@
   --border:rgba(255,255,255,.10);
 }
 
-/* ---------- Global reset ---------- */
+/* ---------- Globals ---------- */
 *{
   box-sizing:border-box;
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
@@ -53,7 +53,7 @@ body{
   align-items:center;
 }
 
-/* ---------- Layout + cards ---------- */
+/* ---------- Layout ---------- */
 .layout{
   max-width:1000px;
   margin:24px auto;
@@ -70,7 +70,7 @@ body{
   box-shadow:0 10px 30px rgba(0,0,0,.25);
 }
 
-/* ---------- Panels + grids ---------- */
+/* ---------- Panelss ---------- */
 .grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -137,6 +137,74 @@ body{
   box-shadow:0 0 0 2px rgba(79,124,255,.25);
 }
 
+/* Alerts grouping */
+.alerts__group {
+  margin-top: 10px;
+}
+
+.alerts__title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.planAlert {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.planAlert--info {
+  color: #fff; /* Info - white*/
+}
+
+.planAlert--warning {
+  color: #f5c542; /* Warning - Yelloww*/
+}
+
+.planAlert--urgent {
+  color: #ff4d4d; /* Urgent - red */
+}
+
+/* Lists */
+.alerts__list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* alert colors */
+.alert--info {
+  color: #ffffff; /* white */
+}
+
+.alert--warning {
+  color: #ffd54a; /* yellow-ish */
+}
+
+.alert--urgent {
+  color: #ff4d4d; /* red */
+}
+/* Green text */
+.ok {
+  color: #2ecc71;
+}
+
+/* Green check icon  */
+.planAlertOk {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 1;
+  color: #2ecc71;
+  user-select: none;
+}
+
+.alerts__title--warning {
+  color: #ffd54a;
+}
+
+.alerts__title--urgent {
+  color: #ff4d4d;
+}
+
 /* ---------- Lists ---------- */
 .list{
   display:grid;
@@ -160,7 +228,7 @@ small{
 
 /* =========================================================
    Auth UI additions
-   ========================================================= */
+========================================================= */
 .authCard{
   max-width:560px;
   margin:0 auto;
@@ -213,7 +281,7 @@ small{
   color:var(--muted);
 }
 
-/* roles on register */
+
 .roleGrid{
   display:flex;
   gap:10px;
@@ -230,7 +298,6 @@ small{
   background:rgba(255,255,255,.02);
 }
 
-/* topbar user area */
 .navSpacer{
   flex:1;
 }
@@ -246,9 +313,608 @@ small{
   white-space:nowrap;
 }
 
-/* ---------- Responsive ---------- */
+
 @media (max-width: 800px){
   .grid{
     grid-template-columns:1fr;
+  }
+}
+/* =========================================================
+   Course Catalogue Page
+========================================================= */
+
+.catalogHero{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:16px;
+  flex-wrap:wrap;
+}
+
+.catalogHero__subtitle{
+  margin-top:6px;
+  max-width:700px;
+}
+
+.catalogStats{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.catalogStat{
+  min-width:120px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  padding:12px 14px;
+  background:rgba(255,255,255,.03);
+}
+
+.catalogStat__value{
+  font-size:1.35rem;
+  font-weight:800;
+}
+
+.catalogStat__label{
+  margin-top:4px;
+  font-size:.92rem;
+}
+
+.catalogToolbar{
+  display:grid;
+  grid-template-columns: minmax(260px, 1.5fr) repeat(2, minmax(140px, .6fr));
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.catalogToolbar__group{
+  display:grid;
+  gap:6px;
+}
+
+.catalogToolbar__group--search{
+  min-width:0;
+}
+
+.catalogFieldLabel{
+  color:var(--muted);
+  font-size:.92rem;
+}
+
+.catalogGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+  gap:14px;
+}
+
+.catalogCourseCard{
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:14px;
+  background:rgba(255,255,255,.025);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.catalogCourseCard__top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.catalogCourseCard__code{
+  color:#9bb3ff;
+  font-weight:800;
+  font-size:.95rem;
+  letter-spacing:.3px;
+}
+
+.catalogCourseCard__title{
+  margin:4px 0 0;
+  font-size:1.05rem;
+}
+
+.catalogCourseCard__desc{
+  margin:0;
+  line-height:1.5;
+}
+
+.catalogCourseCard__badges{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.catalogBadge{
+  border:1px solid rgba(79,124,255,.35);
+  background:rgba(79,124,255,.14);
+  color:var(--text);
+  border-radius:999px;
+  padding:6px 10px;
+  font-size:.82rem;
+  white-space:nowrap;
+}
+
+.catalogBadge--soft{
+  border-color:var(--border);
+  background:rgba(255,255,255,.04);
+}
+
+.catalogTagRow{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.catalogTag{
+  border:1px solid var(--border);
+  border-radius:999px;
+  padding:5px 9px;
+  font-size:.8rem;
+  color:var(--muted);
+  background:rgba(255,255,255,.03);
+}
+
+.catalogCourseCard__meta{
+  display:grid;
+  gap:8px;
+  margin-top:auto;
+  padding-top:6px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+
+.catalogLabel{
+  font-weight:700;
+  color:var(--text);
+}
+
+@media (max-width: 800px){
+  .catalogToolbar{
+    grid-template-columns:1fr;
+  }
+
+  .catalogCourseCard__top{
+    flex-direction:column;
+  }
+
+  .catalogCourseCard__badges{
+    justify-content:flex-start;
+  }
+}
+/* =========================================================
+   GradPlans Page
+========================================================= */
+
+.gradPlansLayout{
+  display:grid;
+  grid-template-columns: 260px minmax(0, 1fr) 280px;
+  gap:16px;
+  align-items:start;
+}
+
+.gradPlansLeftCol,
+.gradPlansCenterCol,
+.gradPlansRightCol{
+  min-width:0;
+}
+
+.stickyPanel{
+  position:sticky;
+  top:84px;
+}
+
+.gpProfileCard{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  margin-bottom:16px;
+}
+
+.gpProfileCard__avatar{
+  width:72px;
+  height:72px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:1.35rem;
+  letter-spacing:.5px;
+  background:rgba(255,255,255,.08);
+  border:1px solid var(--border);
+  margin-bottom:10px;
+}
+
+.gpProfileCard__name{
+  font-size:1.2rem;
+  font-weight:800;
+}
+
+.gpProfileCard__meta{
+  margin-top:4px;
+}
+
+.gpPlanCard,
+.gpMiniPlanCard,
+.gpSuggestionCard,
+.advisorNoteCard{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.02);
+}
+
+.gpPlanCard{
+  padding:14px;
+  margin-bottom:16px;
+}
+
+.gpPlanCard--highlight{
+  border-color:rgba(79,124,255,.45);
+  box-shadow:0 0 0 1px rgba(79,124,255,.18);
+}
+
+.gpPlanCard__header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.gpPlanCard__title{
+  margin:0;
+  font-size:1.1rem;
+}
+/* =========================================================
+  Hamburger (Student )
+========================================================= */
+
+.topbarLeft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.hamburger{
+  width:42px;
+  height:38px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+}
+
+
+.sidebar{
+  position:fixed;
+  top:0;
+  left:0;
+  height:100vh;
+  width:280px;
+  background:rgba(18,27,47,.98);
+  border-right:1px solid var(--border);
+  box-shadow: 12px 0 30px rgba(0,0,0,.35);
+  transform:translateX(-105%);
+  transition:transform .18s ease-out;
+  z-index:1000;
+  display:flex;
+  flex-direction:column;
+}
+
+.sidebar.open{
+  transform:translateX(0);
+}
+
+.sidebarHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 14px;
+  border-bottom:1px solid var(--border);
+}
+
+.sidebarTitle{
+  font-weight:800;
+  letter-spacing:.2px;
+}
+
+.sidebarClose{
+  padding:6px 10px;
+}
+
+.sidebarLinks{
+  padding:12px;
+  display:grid;
+  gap:8px;
+}
+
+.sideLink{
+  width:100%;
+  text-align:left;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.02);
+  color:var(--text);
+  padding:10px 12px;
+  border-radius:12px;
+  cursor:pointer;
+}
+
+.sideLink:hover{
+  border-color:rgba(255,255,255,.18);
+}
+
+.sideLink.active{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(79,124,255,.20);
+}
+
+
+.sidebarOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease-out;
+  z-index:999;
+}
+
+.sidebarOverlay.open{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.avatar{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  letter-spacing:.5px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid var(--border);
+  user-select:none;
+}
+
+.avatarSm{
+  width:30px;
+  height:30px;
+  font-size:.85rem;
+}
+
+.profileRow{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.profileMeta{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.profileName{
+  font-size:1.1rem;
+  font-weight:800;
+}
+
+.topUser{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+@media (min-width: 1100px){
+  .layoutWithSidebar{
+    padding-left:16px;
+  }
+}
+/* =========================================================
+   Advisor Dashboard
+========================================================= */
+
+.advisorDashboard{
+  display:grid;
+  grid-template-columns:320px minmax(0, 1fr);
+  gap:16px;
+  align-items:start;
+}
+
+.advisorSidebar{
+  display:grid;
+  gap:16px;
+}
+
+.advisorDetailCard{
+  min-width:0;
+}
+
+.advisorMiniCard{
+  align-items:flex-start;
+}
+
+.advisorSubmissionBtn{
+  width:100%;
+  text-align:left;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+  color:var(--text);
+  padding:12px;
+  cursor:pointer;
+  transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.advisorSubmissionBtn:hover{
+  border-color:rgba(255,255,255,.18);
+  background:rgba(255,255,255,.04);
+}
+
+.advisorSubmissionBtn.selected{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(79,124,255,.20);
+  background:rgba(79,124,255,.08);
+}
+
+.advisorSubmissionBtn__top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+.advisorSubmissionBtn__meta{
+  display:grid;
+  gap:4px;
+}
+
+.advisorDetailHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.advisorDetailGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.advisorInfoBlock{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px;
+  background:rgba(255,255,255,.02);
+}
+
+.advisorInfoBlock h3{
+  margin-top:0;
+}
+
+.alertGroup{
+  margin-top:10px;
+}
+
+.alertGroup ul{
+  margin:8px 0 0;
+  padding-left:18px;
+}
+
+.advisorCoursesSection{
+  margin-top:18px;
+}
+
+.advisorCourseTable{
+  margin-top:10px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  background:rgba(255,255,255,.02);
+}
+
+.advisorCourseTable__head,
+.advisorCourseTable__row{
+  display:grid;
+  grid-template-columns:140px minmax(0, 1fr) 80px;
+  gap:12px;
+  padding:12px 14px;
+  align-items:center;
+}
+
+.advisorCourseTable__head{
+  background:rgba(255,255,255,.05);
+  font-weight:800;
+  color:var(--text);
+}
+
+.advisorCourseTable__row{
+  border-top:1px solid var(--border);
+}
+
+.advisorFeedbackSection{
+  margin-top:18px;
+}
+
+.advisorTextarea{
+  width:100%;
+  resize:vertical;
+  min-height:140px;
+  margin-top:8px;
+}
+
+.advisorActionRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:12px;
+}
+
+.statusBadge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:.82rem;
+  font-weight:700;
+  border:1px solid var(--border);
+  white-space:nowrap;
+}
+
+.statusBadge.pending{
+  color:#ffe08a;
+  background:rgba(245,197,66,.12);
+  border-color:rgba(245,197,66,.35);
+}
+
+.statusBadge.approved{
+  color:#7ee2a8;
+  background:rgba(46,204,113,.12);
+  border-color:rgba(46,204,113,.35);
+}
+
+.statusBadge.needs-changes{
+  color:#ff8f8f;
+  background:rgba(255,77,77,.12);
+  border-color:rgba(255,77,77,.35);
+}
+
+.statusBadge.submitted{
+  color:#9bb3ff;
+  background:rgba(79,124,255,.12);
+  border-color:rgba(79,124,255,.35);
+}
+
+.statusBadge.draft,
+.statusBadge.unknown{
+  color:var(--muted);
+  background:rgba(255,255,255,.04);
+}
+
+@media (max-width: 900px){
+  .advisorDashboard{
+    grid-template-columns:1fr;
+  }
+
+  .advisorDetailGrid{
+    grid-template-columns:1fr;
+  }
+
+  .advisorCourseTable__head,
+  .advisorCourseTable__row{
+    grid-template-columns:110px minmax(0, 1fr) 70px;
   }
 }

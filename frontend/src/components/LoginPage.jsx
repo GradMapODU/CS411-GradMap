@@ -1,3 +1,4 @@
+// frontend/src/components/LoginPage.jsx
 // #region LoginPage Component
 // Handles user authentication (mock only, frontend-based)
 // - Accepts built-in users (student/advisor/admin)
@@ -19,14 +20,24 @@ export default function LoginPage({ onLoginSuccess, onGoRegister }) {
 
   // #region Built-in Mock Users (always available)
   // These simulate backend users that always exist
-  const builtins = useMemo(
-    () => [
-      { username: "student", password: "student", roles: ["student"] },
-      { username: "advisor", password: "advisor", roles: ["advisor"] },
-      { username: "admin", password: "admin", roles: ["admin"] },
-    ],
-    []
-  );
+  // frontend/src/components/LoginPage.jsx
+
+const builtins = useMemo(
+  () => [
+    // Students
+    { username: "student1", password: "student1", roles: ["student"] },
+    { username: "student2", password: "student2", roles: ["student"] },
+    //{ username: "student3", password: "student3", roles: ["student"] },
+
+    // Advisors
+    { username: "advisor1", password: "advisor1", roles: ["advisor"] },
+    { username: "advisor2", password: "advisor2", roles: ["advisor"] },
+
+    // Admin
+    { username: "admin", password: "admin", roles: ["admin"] },
+  ],
+  []
+);
   // #endregion
 
 
@@ -86,7 +97,8 @@ export default function LoginPage({ onLoginSuccess, onGoRegister }) {
       <h2>Login</h2>
 
       <p className="muted">
-        Try: <b>student/student</b>, <b>advisor/advisor</b>, <b>admin/admin</b>
+        Try: <b>student1/student1</b>, <b>student2/student2</b>,{" "}
+        <b>advisor1/advisor1</b>, <b>advisor2/advisor2</b>, <b>admin/admin</b>
       </p>
 
       <form onSubmit={handleSubmit} className="authForm">
