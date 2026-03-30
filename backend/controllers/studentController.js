@@ -1,4 +1,5 @@
-const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot } = require('../models');
+// const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot } = require('../models');
+const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot, PlanFeedback } = require('../models');
 
 exports.getRequirements = async (req, res) => {
     try {
@@ -75,4 +76,20 @@ exports.checkConflicts = async (req, res) => {
         
         res.json({ hasConflicts: conflicts.length > 0, conflicts });
     } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+exports.getPlanFeedback = async (req, res) => {
+    try {
+        const { plan_id } = req.params;
+
+        const feedback = await PlanFeedback.findAll({
+            where: { plan_id },
+            order: [['createdAt', 'DESC']]
+        });
+
+        res.json(feedback);
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };

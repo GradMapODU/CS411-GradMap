@@ -7,5 +7,6 @@ router.use(authenticateToken, requireRole('Advisor'));
 
 router.get('/students', advisorCtrl.getMyStudents);
 router.put('/plans/:plan_id', advisorCtrl.reviewPlan);
+router.post('/plans/:plan_id/feedback', advisorCtrl.addFeedback);
 
 module.exports = router;

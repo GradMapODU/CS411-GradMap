@@ -7,6 +7,10 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, proces
     logging: false
 });
 
+//Models
+const PlanFeedback = require('./planFeedback')(sequelize, DataTypes);
+db.PlanFeedback = PlanFeedback;
+
 //Entities
 const User = sequelize.define('User', {
     user_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
@@ -116,6 +120,12 @@ PlannedCourse.belongsTo(Course, { foreignKey: 'course_id' });
 
 Course.hasMany(TimeSlot, { foreignKey: 'course_id' });
 TimeSlot.belongsTo(Course, { foreignKey: 'course_id' });
+
+Plan.hasMany(PlanFeedback, { foreignKey: 'plan_id' });
+PlanFeedback.belongsTo(Plan, { foreignKey: 'plan_id' });
+
+Advisor.hasMany(PlanFeedback, { foreignKey: 'advisor_id' });
+PlanFeedback.belongsTo(Advisor, { foreignKey: 'advisor_id' });
 
 // Program to Course (Many-to-Many)
 Program.belongsToMany(Course, { through: ProgramCourse, foreignKey: 'program_id' });
