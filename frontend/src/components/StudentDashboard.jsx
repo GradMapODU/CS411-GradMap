@@ -123,7 +123,37 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
         ? String(student.gpa)
         : "N/A";
 
-  const plans = Array.isArray(student?.plan) ? student.plan : EMPTY_ARRAY;
+  // Determine which plans array to use: prefer student's plan submissions, otherwise grad plans
+  // If the student has explicit plan submissions (used for submission workflow), use that first.
+  // Otherwise, fall back to the student's gradPlans array, mapping plannedCredits into a credits field for display.
+  const plans = useMemo(() => {
+    const hasPlanArray = Array.isArray(student?.plan) && student.plan.length > 0;
+    if (hasPlanArray) return student.plan;
+    // fallback to gradPlans
+    if (Array.isArray(student?.gradPlans)) {
+      return student.gradPlans.map((p) => {
+        // compute a credits field based on plannedCredits or sum of courses
+        let credits = 0;
+        if (typeof p.plannedCredits === "number") {
+          credits = p.plannedCredits;
+        } else if (Array.isArray(p.courses)) {
+          credits = p.courses.reduce((sum, c) => sum + Number(c?.credits ?? 0), 0);
+        }
+        return {
+          ...p,
+          credits,
+          // Provide a default status if not present on grad plan
+          status: p.status || "Planned",
+          submittedOn: p.submittedOn || "",
+          reviewedBy: p.reviewedBy || "",
+          reviewedOn: p.reviewedOn || "",
+          advisorStatus: p.advisorStatus || "",
+          advisorFeedback: p.advisorFeedback || "",
+        };
+      });
+    }
+    return EMPTY_ARRAY;
+  }, [student]);
 
   const selectedPlans = useMemo(() => {
       const idSet = new Set(selectedPlanIds);

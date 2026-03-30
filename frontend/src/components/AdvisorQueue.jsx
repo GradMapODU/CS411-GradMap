@@ -39,13 +39,39 @@ export default function AdvisorQueue({
         const student = students[submission.studentId];
         if (!student) return null;
 
-        const plan = (student.plan || []).find((p) => p.id === submission.planId);
+        // Determine the correct plans array: prefer student's plan submissions, otherwise gradPlans
+        const plansArr = Array.isArray(student.plan) && student.plan.length > 0
+          ? student.plan
+          : Array.isArray(student.gradPlans)
+            ? student.gradPlans
+            : [];
+
+        // Find the plan matching the submission's planId
+        const plan = plansArr.find((p) => p.id === submission.planId);
         if (!plan) return null;
+
+        // Ensure plan has a credits field for consistent display
+        let credits = plan.credits;
+        if (credits == null) {
+          if (typeof plan.plannedCredits === "number") {
+            credits = plan.plannedCredits;
+          } else if (Array.isArray(plan.courses)) {
+            credits = plan.courses.reduce((sum, c) => sum + Number(c?.credits ?? 0), 0);
+          }
+        }
 
         return {
           ...submission,
           student,
-          plan,
+          plan: {
+            ...plan,
+            credits,
+            status: plan.status || "Planned",
+            advisorStatus: plan.advisorStatus || "",
+            submittedOn: plan.submittedOn || "",
+            reviewedBy: plan.reviewedBy || "",
+            reviewedOn: plan.reviewedOn || "",
+          },
         };
       })
       .filter(Boolean);
