@@ -1,0 +1,6 @@
+Known Bugs
+- Fix scrolling UI on GradPlans Page
+- Fix Student Dashboard Alerts overview (shows incorrect data)
+- Fix GradPlan not linking to Course Catalogue for editing
+- Check advising feedback making it to student properly
+- Alerts not updating based on selected plan

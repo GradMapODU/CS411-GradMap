@@ -1,0 +1,6 @@
+ToDo
+- Integrate with backend
+- Update submenu so students no longer see Advising Hub
+- Clean up GradPlan vs Plan naming (use only GradPlan across app)
+- Improve Course Catalogue filtering/search UX
+- Add loading states for async data (future backend calls)
