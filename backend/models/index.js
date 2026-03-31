@@ -7,9 +7,7 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, proces
     logging: false
 });
 
-//Models
-const PlanFeedback = require('./planFeedback')(sequelize, DataTypes);
-db.PlanFeedback = PlanFeedback;
+
 
 //Entities
 const User = sequelize.define('User', {
@@ -25,7 +23,7 @@ const Student = sequelize.define('Student', {
     last_name: DataTypes.STRING(100),
     major: DataTypes.STRING(100),
     year: DataTypes.INTEGER,
-    GPA: DataTypes.String(10),
+    GPA: DataTypes.STRING(10),
     advisor_id: DataTypes.INTEGER
 }, { timestamps: false });
 
@@ -51,7 +49,8 @@ const Course = sequelize.define('Course', {
     department: DataTypes.STRING(100),
     category: DataTypes.ENUM('Core', 'Elective', 'General'),
     difficulty: DataTypes.ENUM('Beginner', 'Intermediate', 'Advanced'),
-    course_description: DataTypes.TEXT
+    course_description: DataTypes.TEXT,
+    seat_availability: DataTypes.INTEGER,
 }, { timestamps: false });
 
 const TimeSlot = sequelize.define('Time_Slot', {
@@ -90,7 +89,6 @@ const Plan = sequelize.define('Plan', {
     degree_program: DataTypes.STRING(100),
     creation_date: DataTypes.DATE,
     status: { type: DataTypes.ENUM('Draft', 'Pending', 'Approved', 'Needs Revision'), defaultValue: 'Draft' },
-    advisor_notes: DataTypes.TEXT
 }, { timestamps: false });
 
 const PlannedCourse = sequelize.define('Planned_Course', {
@@ -99,6 +97,13 @@ const PlannedCourse = sequelize.define('Planned_Course', {
     course_id: DataTypes.INTEGER,
     semester: DataTypes.STRING(10),
     year: DataTypes.INTEGER
+}, { timestamps: false });
+
+const PlanFeedback = sequelize.define('PlanFeedback', {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    plan_id: DataTypes.INTEGER,
+    advisor_id: DataTypes.INTEGER,
+    message: DataTypes.TEXT,
 }, { timestamps: false });
 
 //Relationships
@@ -135,7 +140,7 @@ Course.belongsToMany(Program, { through: ProgramCourse, foreignKey: 'course_id' 
 Course.hasMany(SemesterOffering, { foreignKey: 'course_id' });
 SemesterOffering.belongsTo(Course, { foreignKey: 'course_id' });
 
-// Course to Prerequisites (Self-referential Many-to-Many)
+// Course to Prerequisites 
 Course.belongsToMany(Course, { 
     as: 'RequiredPrerequisites', 
     through: Prerequisite, 
@@ -146,5 +151,5 @@ Course.belongsToMany(Course, {
 module.exports = { 
     sequelize, User, Student, Advisor, Admin, Course, 
     Plan, PlannedCourse, TimeSlot, Program, ProgramCourse, 
-    SemesterOffering, Prerequisite 
+    SemesterOffering, Prerequisite, PlanFeedback 
 };

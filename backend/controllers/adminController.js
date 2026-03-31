@@ -1,5 +1,5 @@
 const bcrypt = require('bcrypt');
-const { Course, PlannedCourse, Program, ProgramCourse, SemesterOffering, Prerequisite, sequelize } = require('../models');
+const {User, Student, Advisor,  Course, PlannedCourse, Program, ProgramCourse, SemesterOffering, Prerequisite, sequelize } = require('../models');
 
 exports.uploadCourse = async (req, res) => {
     try {
@@ -60,8 +60,8 @@ exports.createUserProfile = async (req, res) => {
         const { 
             username, password, role, 
             first_name, last_name, 
-            program_id, gpa,       // Student specific
-            department             // Advisor specific
+            major,year, gpa,       
+            department             
         } = req.body;
 
         //Hash the password
@@ -77,16 +77,17 @@ exports.createUserProfile = async (req, res) => {
         //Check the role and create the matching profile!
         if (role === 'Student') {
             await Student.create({
-                user_id: newUser.user_id,
+                student_id: newUser.get('user_id') || newUser.id || newUser.user_id, // Sequelize quirk: sometimes it's .get('field') and sometimes .field
                 first_name,
                 last_name,
-                program_id,
+                major: major || 'Undeclared', 
+                year: year || 1,
                 gpa: gpa || 0.0 // Default to 0.0 if not provided
             }, { transaction: t });
             
         } else if (role === 'Advisor') {
             await Advisor.create({
-                user_id: newUser.user_id,
+                advisor_id: newUser.get('user_id') || newUser.id || newUser.user_id,
                 first_name,
                 last_name,
                 department: department || 'General Advising'
