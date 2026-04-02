@@ -1,5 +1,5 @@
 // frontend/src/App.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import StudentDashboard from "./components/StudentDashboard.jsx";
 import AdvisorQueue from "./components/AdvisorQueue.jsx";
@@ -11,6 +11,10 @@ import CourseCataloguePage from "./components/CourseCataloguePage.jsx";
 
 import { mockData } from "./data/mockData.js";
 import "./App.css";
+
+// API layer
+import { getRequirements } from "../api/auth.js";
+import { getAdvisorStudents, updatePlan } from "../api/advisors.js";
 
 function AdvisingHubPage() {
   return (
@@ -56,9 +60,35 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [appData, setAppData] = useState(mockData);
 
-  // When editing a grad plan in the catalogue, we store which plan ID is currently being edited.
-  // This enables navigating to the Course Catalogue page with a selected plan.
+  // backend-backed state
+  const [studentRequirements, setStudentRequirements] = useState(null);
+  const [advisorStudents, setAdvisorStudents] = useState(null);
+
+  // When editing a grad plan in the catalogue, store the selected plan id
   const [editingPlanId, setEditingPlanId] = useState(null);
+
+  useEffect(() => {
+    const token = session?.token;
+    if (!token) return;
+
+    async function loadBackendData() {
+      try {
+        if (session.roles?.includes("student")) {
+          const requirements = await getRequirements(token);
+          setStudentRequirements(requirements);
+        }
+
+        if (session.roles?.includes("advisor")) {
+          const students = await getAdvisorStudents(token);
+          setAdvisorStudents(students);
+        }
+      } catch (err) {
+        console.error("Failed to load backend data:", err);
+      }
+    }
+
+    loadBackendData();
+  }, [session]);
 
   function loginSuccess(s) {
     setSession(s);
@@ -71,6 +101,9 @@ export default function App() {
     setSession(null);
     setView("login");
     setMenuOpen(false);
+    setStudentRequirements(null);
+    setAdvisorStudents(null);
+    setEditingPlanId(null);
   }
 
   function switchRole(role) {
@@ -95,20 +128,15 @@ export default function App() {
       const student = prev.students?.[studentId];
       if (!student) return prev;
 
-      // Update the submission plan array
       const updatedPlans = (student.plan || []).map((plan) =>
         plan.id === planId ? updater(plan) : plan
       );
 
-      // Also propagate status-related changes back into gradPlans so that
-      // other views (e.g., GradPlansPage) reflect advisor actions like approval
       const updatedGradPlans = Array.isArray(student.gradPlans)
         ? student.gradPlans.map((gp) => {
-            // find the corresponding plan entry
             const matchPlan = updatedPlans.find((p) => p.id === planId);
-            // If no match or term mismatch, return gp unchanged
             if (!matchPlan) return gp;
-            // update fields only if gp represents same term or id
+
             if (gp.id === matchPlan.id || gp.term === matchPlan.term) {
               return {
                 ...gp,
@@ -120,6 +148,7 @@ export default function App() {
                 reviewedOn: matchPlan.reviewedOn,
               };
             }
+
             return gp;
           })
         : student.gradPlans;
@@ -138,33 +167,19 @@ export default function App() {
     });
   }
 
-  /**
-   * Update the gradPlans array for a given student. Accepts the student ID
-   * and the new plans array. Returns a new appData state with the updated
-   * gradPlans. If the student is not found, the previous state is returned.
-   *
-   * This helper allows children like GradPlansPage to persist plan edits
-   * back into the shared appData so other views (e.g., Dashboard) reflect
-   * modifications immediately.
-   *
-   * @param {string} studentId - The key identifying the student in appData.students
-   * @param {Array} newGradPlans - The updated gradPlans array
-   */
   function updateStudentGradPlans(studentId, newGradPlans) {
     setAppData((prev) => {
       const student = prev.students?.[studentId];
       if (!student) return prev;
 
       const gradPlansArray = Array.isArray(newGradPlans) ? newGradPlans : [];
-
-      // Build a corresponding "plan" array for submission purposes
       const existingPlan = Array.isArray(student.plan) ? student.plan : [];
+
       const derivedPlan = gradPlansArray.map((gp) => {
-        // Find an existing plan entry by id or term to preserve metadata
         const match = existingPlan.find(
           (p) => p.id === gp.id || p.term === gp.term
         );
-        // Compute credits: prefer plannedCredits, else sum of course credits
+
         let credits = gp.plannedCredits;
         if (credits == null) {
           if (Array.isArray(gp.courses)) {
@@ -176,6 +191,7 @@ export default function App() {
             credits = 0;
           }
         }
+
         return {
           id: match?.id || gp.id || `plan-${gp.term}`,
           term: gp.term,
@@ -204,7 +220,20 @@ export default function App() {
     });
   }
 
-  function handleApprovePlan({ advisorId, studentId, planId, feedback }) {
+  async function handleApprovePlan({ advisorId, studentId, planId, feedback }) {
+    const token = session?.token;
+
+    if (token && planId) {
+      try {
+        await updatePlan(token, planId, {
+          status: "Approved",
+          advisor_notes: feedback,
+        });
+      } catch (err) {
+        console.error("Failed to approve plan:", err);
+      }
+    }
+
     const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
     const reviewedOn = getTodayString();
 
@@ -218,7 +247,25 @@ export default function App() {
     }));
   }
 
-  function handleRequestChanges({ advisorId, studentId, planId, feedback }) {
+  async function handleRequestChanges({
+    advisorId,
+    studentId,
+    planId,
+    feedback,
+  }) {
+    const token = session?.token;
+
+    if (token && planId) {
+      try {
+        await updatePlan(token, planId, {
+          status: "Needs Changes",
+          advisor_notes: feedback,
+        });
+      } catch (err) {
+        console.error("Failed to request plan changes:", err);
+      }
+    }
+
     const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
     const reviewedOn = getTodayString();
 
@@ -259,24 +306,15 @@ export default function App() {
     }));
   }
 
-  /**
-   * Set the editing plan ID and navigate to the course catalogue page.
-   * @param {string} planId - The ID of the plan to edit
-   */
   function handleEditPlan(planId) {
     if (!planId) return;
     setEditingPlanId(planId);
     setStudentPage("catalogue");
   }
 
-  /**
-   * Submit a specific grad plan to the advisor. This mirrors the submission
-   * logic in handleSubmitPlan but for a single plan.
-   * @param {string} studentId - Student ID key in appData
-   * @param {string} planId - Plan ID to submit
-   */
   function handleSubmitSpecificPlan(studentId, planId) {
     if (!studentId || !planId) return;
+
     updateStudentPlan(studentId, planId, (plan) => ({
       ...plan,
       status: "Submitted",
@@ -288,14 +326,10 @@ export default function App() {
     }));
   }
 
-  /**
-   * Clear all courses from a specific grad plan, setting plannedCredits to 0.
-   * @param {string} studentId - Student ID key in appData
-   * @param {string} planId - Plan ID to clear
-   */
   function handleClearGradPlan(studentId, planId) {
     const student = appData.students?.[studentId];
     if (!student) return;
+
     const newGradPlans = Array.isArray(student.gradPlans)
       ? student.gradPlans.map((gp) => {
           if (gp.id === planId || gp.term === planId) {
@@ -308,29 +342,23 @@ export default function App() {
           return gp;
         })
       : [];
+
     updateStudentGradPlans(studentId, newGradPlans);
   }
 
-  /**
-   * Add a course to a specific grad plan. If the course is already present
-   * (matched by course code), it will not be added again. Planned credits
-   * are recalculated.
-   * @param {string} studentId - Student ID key in appData
-   * @param {string} planId - Plan ID to modify
-   * @param {Object} course - Course object containing at least code, title, credits
-   */
   function handleAddCourseToGradPlan(studentId, planId, course) {
     const student = appData.students?.[studentId];
     if (!student || !course) return;
+
     const newGradPlans = Array.isArray(student.gradPlans)
       ? student.gradPlans.map((gp) => {
           if (gp.id === planId || gp.term === planId) {
             const existingCourses = Array.isArray(gp.courses) ? gp.courses : [];
-            // avoid adding duplicates based on course code
             const alreadyExists = existingCourses.some(
               (c) => c.code === course.code
             );
             if (alreadyExists) return gp;
+
             const updatedCourses = [
               ...existingCourses,
               {
@@ -340,10 +368,12 @@ export default function App() {
                 status: "Planned",
               },
             ];
+
             const totalCredits = updatedCourses.reduce(
               (sum, c) => sum + Number(c.credits ?? 0),
               0
             );
+
             return {
               ...gp,
               courses: updatedCourses,
@@ -353,19 +383,14 @@ export default function App() {
           return gp;
         })
       : [];
+
     updateStudentGradPlans(studentId, newGradPlans);
   }
 
-  /**
-   * Remove a course from a specific grad plan by its course code.
-   * Planned credits are recalculated accordingly.
-   * @param {string} studentId - Student ID key in appData
-   * @param {string} planId - Plan ID to modify
-   * @param {string} courseCode - Code of the course to remove
-   */
   function handleRemoveCourseFromGradPlan(studentId, planId, courseCode) {
     const student = appData.students?.[studentId];
     if (!student || !courseCode) return;
+
     const newGradPlans = Array.isArray(student.gradPlans)
       ? student.gradPlans.map((gp) => {
           if (gp.id === planId || gp.term === planId) {
@@ -373,10 +398,12 @@ export default function App() {
             const updatedCourses = existingCourses.filter(
               (c) => c.code !== courseCode
             );
+
             const totalCredits = updatedCourses.reduce(
               (sum, c) => sum + Number(c.credits ?? 0),
               0
             );
+
             return {
               ...gp,
               courses: updatedCourses,
@@ -386,6 +413,7 @@ export default function App() {
           return gp;
         })
       : [];
+
     updateStudentGradPlans(studentId, newGradPlans);
   }
 
@@ -464,6 +492,7 @@ export default function App() {
             onSubmitPlan={handleSubmitPlan}
           />
         );
+
       case "gradplans":
         return (
           <GradPlansPage
@@ -489,6 +518,7 @@ export default function App() {
             }}
           />
         );
+
       case "catalogue":
         return (
           <CourseCataloguePage
@@ -506,6 +536,7 @@ export default function App() {
             }}
           />
         );
+
       case "availability":
         return (
           <MyAvailabilityPage
@@ -513,10 +544,13 @@ export default function App() {
             student={studentRecord}
           />
         );
+
       case "advising":
         return <AdvisingHubPage />;
+
       case "resources":
         return <ResourcesPage />;
+
       default:
         return null;
     }

@@ -1,108 +1,72 @@
 // frontend/src/components/LoginPage.jsx
-// #region LoginPage Component
-// Handles user authentication (mock only, frontend-based)
-// - Accepts built-in users (student/advisor/admin)
-// - Accepts locally registered users (stored in localStorage)
-// - Returns session object to App.jsx on success
+//
+// Updated LoginPage component that connects to the backend API.  This
+// implementation removes the previous mock user handling and instead
+// authenticates via `/api/auth/login`.  On successful login the returned
+// JWT token and role are passed back to the parent component so that
+// subsequent API calls can include the token.
 
-// #region Imports
-import { useMemo, useState } from "react";
-// #endregion
+import { useState } from "react";
 
 export default function LoginPage({ onLoginSuccess, onGoRegister }) {
-
-  // #region State Management
+  // State for the username, password, error messages and a loading flag.
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
-  // #endregion
+  const [loading, setLoading] = useState(false);
 
-
-  // #region Built-in Mock Users (always available)
-  // These simulate backend users that always exist
-  // frontend/src/components/LoginPage.jsx
-
-const builtins = useMemo(
-  () => [
-    // Students
-    { username: "student1", password: "student1", roles: ["student"] },
-    { username: "student2", password: "student2", roles: ["student"] },
-    //{ username: "student3", password: "student3", roles: ["student"] },
-
-    // Advisors
-    { username: "advisor1", password: "advisor1", roles: ["advisor"] },
-    { username: "advisor2", password: "advisor2", roles: ["advisor"] },
-
-    // Admin
-    { username: "admin", password: "admin", roles: ["admin"] },
-  ],
-  []
-);
-  // #endregion
-
-
-  // #region Local Storage Utilities
-  // Load any users created through registration page
-  function loadRegisteredUsers() {
-    try {
-      return JSON.parse(localStorage.getItem("gradmap_users") || "[]");
-    } catch {
-      return [];
-    }
-  }
-  // #endregion
-
-
-  // #region Form Submission Handler
-  function handleSubmit(e) {
+  /**
+   * Submit handler for the login form.  Sends the credentials to the
+   * backend and processes the response.  On success the JWT token and
+   * lowercase role are sent up through onLoginSuccess.  Errors are
+   * displayed to the user.
+   */
+  async function handleSubmit(e) {
     e.preventDefault();
     setErr("");
-
     const u = username.trim();
     const p = password;
-
-    // Basic validation
     if (!u || !p) {
       setErr("Please enter a username and password.");
       return;
     }
-
-    // Combine built-in + registered users
-    const registered = loadRegisteredUsers();
-    const allUsers = [...builtins, ...registered];
-
-    // Case-insensitive username check
-    const match = allUsers.find(
-      (x) => x.username.toLowerCase() === u.toLowerCase() && x.password === p
-    );
-
-    if (!match) {
-      setErr("Invalid username or password.");
-      return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u, password: p }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Display a server‑provided error if available, otherwise generic message.
+        setErr(data?.error || "Invalid username or password.");
+      } else {
+        const role = (data.role || "").toLowerCase();
+        onLoginSuccess({
+          username: u,
+          roles: role ? [role] : [],
+          activeRole: role,
+          token: data.token,
+        });
+      }
+    } catch (error) {
+      // Log the error so that ESLint does not complain about unused vars
+      console.error(error);
+      setErr("Unable to reach server. Please try again later.");
+    } finally {
+      setLoading(false);
     }
-
-    // Send session object back to App.jsx
-    onLoginSuccess({
-      username: match.username,
-      roles: match.roles,
-      activeRole: match.roles[0],
-    });
   }
-  // #endregion
 
-
-  // #region Render
   return (
     <section className="card authCard">
       <h2>Login</h2>
-
       <p className="muted">
-        Try: <b>student1/student1</b>, <b>student2/student2</b>,{" "}
-        <b>advisor1/advisor1</b>, <b>advisor2/advisor2</b>, <b>admin/admin</b>
+        Enter your username and password to sign in. If you do not have an
+        account you can create one.
       </p>
-
       <form onSubmit={handleSubmit} className="authForm">
-
         {/* Username Field */}
         <label className="field">
           <span>Username</span>
@@ -113,7 +77,6 @@ const builtins = useMemo(
             autoComplete="username"
           />
         </label>
-
         {/* Password Field */}
         <label className="field">
           <span>Password</span>
@@ -125,28 +88,23 @@ const builtins = useMemo(
             autoComplete="current-password"
           />
         </label>
-
         {/* Error Display */}
         {err ? <div className="error">{err}</div> : null}
-
         {/* Action Buttons */}
         <div className="authActions">
-          <button className="btn primary" type="submit">
-            Sign In
+          <button className="btn primary" type="submit" disabled={loading}>
+            {loading ? "Signing In..." : "Sign In"}
           </button>
-
           <button
             className="btn"
             type="button"
             onClick={onGoRegister}
+            disabled={loading}
           >
             Create Account
           </button>
         </div>
-
       </form>
     </section>
   );
-  // #endregion
 }
-// #endregion
