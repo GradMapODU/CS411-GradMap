@@ -1,0 +1,95 @@
+// ========================================
+// USERS & ROLES
+// ========================================
+
+// + User
+//   - user_id 
+//   - username
+//   - password_hash
+//   - role (Student | Advisor | Admin)
+
+// + Student
+//   - student_id 
+//   - first_name
+//   - last_name
+//   - major
+//   - year
+//   - gpa
+//   - advisor_id
+
+// + Advisor
+//   - advisor_id 
+//   - first_name
+//   - last_name
+//   - department
+
+// + Admin
+//   - admin_id
+//   - first_name
+//   - last_name
+//   - access_level
+
+
+// ========================================
+// COURSES & PROGRAMS
+// ========================================
+
+// + Course
+//   - course_id 
+//   - course_code
+//   - course_name
+//   - credits
+//   - department
+//   - category
+//   - difficulty
+//   - seat_availability
+
+// + TimeSlot
+//   - id 
+//   - course_id 
+//   - days
+//   - time_range
+
+// + Program
+//   - program_id 
+//   - name
+//   - total_credits_required
+
+// + ProgramCourse 
+//   - program_id
+//   - course_id 
+//   - requirement_type (Core | Elective | General)
+
+// + Prerequisite
+//   - course_id 
+//   - prerequisite_course_id
+
+// + SemesterOffering
+//   - id (PK)
+//   - course_id 
+//   - semester
+
+
+// ========================================
+// PLANS
+// ========================================
+
+// + Plan
+//   - plan_id
+//   - student_id 
+//   - degree_program
+//   - creation_date
+//   - status (Draft | Pending | Approved | Needs Revision)
+
+// + PlannedCourse
+//   - planned_course_id 
+//   - plan_id
+//   - course_id 
+//   - semester
+//   - year
+
+// + PlanFeedback
+//   - id 
+//   - plan_id
+//   - advisor_id 
+//   - message
