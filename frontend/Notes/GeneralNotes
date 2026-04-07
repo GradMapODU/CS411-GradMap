@@ -1,0 +1,15 @@
+~ (ivan) 
+    - For the demo I believe we should only use pre-seeded users and advisors
+        since added users via registration would require linking them with a major as well as creating 
+        a two-way link with their advisors automatically, which is something that would probably be done
+        by the university systems. ----------- we will still have registration for users to showcase 
+        that our system can handle it and the data flows from frontend -> api -> backend
+
+    - It might be a good idea for 3 different people to present the flow of information through the layers of the app
+        ex: 
+            - 1st: (Ivan - Frontend) - the registration page takes user input, does validation, converts it to JSON and sends that information to the api layer under "Register user"
+            - 2nd: (? - Api) - when recieving Register User request, the api script takes the json payload converts it to http request, sends to correct backend endpoint
+            - 3rd: (Brice - Backend) - upon recieving request to auth register the payload is moved to auth routes into auth controller.register that unpacks the payload and executes registration
+            - Lastly the backend returns success or failure
+    
+     

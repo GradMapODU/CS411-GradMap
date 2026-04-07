@@ -1,12 +1,24 @@
 // api/advisors.js
-import { apiFetch } from "./client.js";
+import { apiRequest } from "./client.js";
+
 export function getStudents(token) {
-  return apiFetch("/api/advisors/students", { token });
+  return apiRequest("/api/advisors/students", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
-export function updatePlan(token, planId, status, advisorNotes) {
-  return apiFetch(`/api/advisors/plans/${planId}`, {
+
+export function updatePlan(token, planId, status, advisorNotes = "") {
+  return apiRequest(`/api/advisors/plans/${planId}`, {
     method: "PUT",
-    token,
-    body: { status, advisor_notes: advisorNotes }
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      status,
+      advisor_notes: advisorNotes,
+    }),
   });
 }

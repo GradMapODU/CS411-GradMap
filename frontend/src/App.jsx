@@ -13,8 +13,8 @@ import { mockData } from "./data/mockData.js";
 import "./App.css";
 
 // API layer
-import { getRequirements } from "../api/auth.js";
-import { getAdvisorStudents, updatePlan } from "../api/advisors.js";
+import { getRequirements } from "../../api/auth.js";
+import { getStudents as getAdvisorStudents, updatePlan } from "../../api/advisors.js";
 
 function AdvisingHubPage() {
   return (
@@ -225,10 +225,7 @@ export default function App() {
 
     if (token && planId) {
       try {
-        await updatePlan(token, planId, {
-          status: "Approved",
-          advisor_notes: feedback,
-        });
+        await updatePlan(token, planId, "Approved", feedback || "Approved with no additional comments.");
       } catch (err) {
         console.error("Failed to approve plan:", err);
       }
@@ -257,10 +254,7 @@ export default function App() {
 
     if (token && planId) {
       try {
-        await updatePlan(token, planId, {
-          status: "Needs Changes",
-          advisor_notes: feedback,
-        });
+        await updatePlan(token, planId, "Needs Revision", feedback || "Please revise this plan.");
       } catch (err) {
         console.error("Failed to request plan changes:", err);
       }
@@ -273,7 +267,7 @@ export default function App() {
       ...plan,
       status: "Needs Changes",
       advisorStatus: "Needs Changes",
-      advisorFeedback: feedback,
+      advisorFeedback: feedback || "Please revise this plan.",
       reviewedBy: advisorName,
       reviewedOn,
     }));
@@ -490,6 +484,7 @@ export default function App() {
           <StudentDashboard
             student={studentRecord}
             onSubmitPlan={handleSubmitPlan}
+            studentRequirements={studentRequirements}
           />
         );
 
@@ -659,6 +654,7 @@ export default function App() {
           <AdvisorQueue
             advisor={advisorRecord}
             students={appData.students}
+            advisorStudents={advisorStudents}
             onApprovePlan={handleApprovePlan}
             onRequestChanges={handleRequestChanges}
           />
@@ -669,3 +665,4 @@ export default function App() {
     </div>
   );
 }
+
