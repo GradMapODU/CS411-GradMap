@@ -13,7 +13,7 @@ export const mockData = {
       progressPercent: 60,
       creditsEarned: 72,
       creditsRequired: 120,
-
+      // -----------------------------------------------------
       availability: {
         term: "Fall 2026",
         weeklyHours: {
@@ -42,7 +42,7 @@ export const mockData = {
           },
         ],
       },
-
+      // -----------------------------------------------------
       alerts: {
         informative: [
           "Less than 10 minutes between CS 305 and your advising block.",
@@ -1430,3 +1430,4 @@ export const mockData = {
   // -------------------------------
 };
 // #endregion ----------------------
+
