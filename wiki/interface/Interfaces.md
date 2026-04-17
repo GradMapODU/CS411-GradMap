@@ -12,5 +12,3 @@ This page indexes the primary user interfaces in GradMap. Each interface has its
 - [[Interface – Course Catalog]]
 - [[Interface – Degree Plan Editor]]
 - [[Interface – References]]
-
-You may add additional interface pages as new screens are introduced.
