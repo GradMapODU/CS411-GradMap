@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { getCurrentStudent } from "../../../api/students.js";
 
 const EMPTY_ARRAY = [];
 
@@ -89,70 +90,81 @@ function getAdvisorReviewText(plan) {
   return "Not submitted";
 }
 
-export default function StudentDashboard({ student, onSubmitPlan }) {
+export default function StudentDashboard({ token, onSubmitPlan }) {
+  // ---------------------------------------------------------------------------
+  // Student state
+  const [student, setStudent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+    
+  useEffect(() => {
+    async function fetchStudent() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await getCurrentStudent(token);
+        setStudent(data || {});
+      } catch (err) {
+        console.error(err);
+        setStudent({});
+        setError(err.message || "Unable to load student data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (token) {
+      fetchStudent();
+    } else {
+      setStudent({});
+      setLoading(false);
+      setError("No login token found.");
+    }
+  }, [token]);
+
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
   const pctFromCredits =
     typeof student?.creditsEarned === "number" &&
     typeof student?.creditsRequired === "number" &&
-    student.creditsRequired > 0
+    student?.creditsRequired > 0
       ? (student.creditsEarned / student.creditsRequired) * 100
       : null;
 
   const progressPct =
-    typeof pctFromCredits === "number"
-      ? pctFromCredits
-      : Number(student?.progressPercent ?? 0);
+    typeof student?.progressPercent === "number"
+      ? student.progressPercent
+      : typeof pctFromCredits === "number"
+        ? pctFromCredits
+        : null;
 
-  const classification =
-    progressPct < 25
+  // rogress percent.
+  const classification = typeof progressPct === "number"
+    ? progressPct < 25
       ? "Freshman"
       : progressPct < 50
         ? "Sophomore"
         : progressPct < 75
           ? "Junior"
-          : "Senior";
+          : "Senior"
+    : "";
 
-  const major =
-    student?.major || student?.program || student?.degreePlan || "Undeclared";
+  // Major
+  const major = student?.major || "";
 
+  // GPA
   const gpa =
     typeof student?.gpa === "number"
       ? student.gpa.toFixed(2)
       : student?.gpa
         ? String(student.gpa)
-        : "N/A";
+        : "";
 
-  // Determine which plans array to use: prefer student's plan submissions, otherwise grad plans
-  // If the student has explicit plan submissions (used for submission workflow), use that first.
-  // Otherwise, fall back to the student's gradPlans array, mapping plannedCredits into a credits field for display.
+  // Determine which plans array to use
   const plans = useMemo(() => {
-    const hasPlanArray = Array.isArray(student?.plan) && student.plan.length > 0;
-    if (hasPlanArray) return student.plan;
-    // fallback to gradPlans
-    if (Array.isArray(student?.gradPlans)) {
-      return student.gradPlans.map((p) => {
-        // compute a credits field based on plannedCredits or sum of courses
-        let credits = 0;
-        if (typeof p.plannedCredits === "number") {
-          credits = p.plannedCredits;
-        } else if (Array.isArray(p.courses)) {
-          credits = p.courses.reduce((sum, c) => sum + Number(c?.credits ?? 0), 0);
-        }
-        return {
-          ...p,
-          credits,
-          // Provide a default status if not present on grad plan
-          status: p.status || "Planned",
-          submittedOn: p.submittedOn || "",
-          reviewedBy: p.reviewedBy || "",
-          reviewedOn: p.reviewedOn || "",
-          advisorStatus: p.advisorStatus || "",
-          advisorFeedback: p.advisorFeedback || "",
-        };
-      });
-    }
-    return EMPTY_ARRAY;
+    return Array.isArray(student?.plan) ? student.plan : EMPTY_ARRAY;
   }, [student]);
 
   const selectedPlans = useMemo(() => {
@@ -276,6 +288,25 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
     console.log("Export to PDF (mock):", selectedPlans);
   }
 
+  
+  if (loading) {
+    return (
+      <section className="card">
+        <h2>Student Dashboard</h2>
+        <p>Loading...</p>
+      </section>
+    );
+  }
+
+  if (!student || Object.keys(student).length === 0) {
+    return (
+      <section className="card">
+        <h2>Student Dashboard</h2>
+        <p>No student data found.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="card">
       <h2>Student Dashboard</h2>
@@ -289,7 +320,9 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
           <div className="profileMeta">
             <div className="profileName">{student?.name}</div>
             <div className="muted">
-              {major} • {classification} • GPA: <b>{gpa}</b>
+              {major}{classification ? ` • ${classification}` : ""} • GPA:
+              {" "}
+              <b>{gpa}</b>
             </div>
           </div>
         </div>
@@ -299,11 +332,20 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
         <div className="panel">
           <h3>Progress</h3>
           <div className="progress">
-            <div className="progress__bar" style={{ width: `${progressPct}%` }} />
+          <div
+            className="progress__bar"
+            style={{ width: progressPct != null ? `${progressPct}%` : "0%" }}
+          />
           </div>
           <p>
-            <b>{Math.round(progressPct)}%</b> complete • {student?.creditsEarned ?? 0} /{" "}
-            {student?.creditsRequired ?? 0} credits
+            <b>{
+              typeof progressPct === "number"
+                ? Math.round(progressPct)
+                : "0"
+            }%</b>{" "}
+            complete • {student?.creditsEarned ?? ""} / {student?.creditsRequired ?? ""}
+            {" "}
+            credits
           </p>
         </div>
 
@@ -419,7 +461,7 @@ export default function StudentDashboard({ student, onSubmitPlan }) {
 
                 <td>{row.term}</td>
                 <td>{getPlanCoursesText(row.courses)}</td>
-                <td>{row.credits}</td>
+                <td>{row?.credits ?? ""}</td>
 
                 <td>
                   {level !== "none" ? (

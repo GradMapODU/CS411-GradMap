@@ -6,6 +6,7 @@ const { registerStudent } = require('../controllers/courseController');
 
 router.use(authenticateToken, requireRole('Student'));
 
+router.get('/me', studentCtrl.getCurrentStudent);
 router.get('/requirements', studentCtrl.getRequirements);
 router.post('/generate-semester', studentCtrl.generateSemester);
 router.get('/plans/:plan_id/conflicts', studentCtrl.checkConflicts);

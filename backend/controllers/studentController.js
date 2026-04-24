@@ -1,5 +1,4 @@
-// const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot } = require('../models');
-const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot, PlanFeedback } = require('../models');
+const { Student, Program, Course, Plan, PlannedCourse, SemesterOffering, TimeSlot, PlanFeedback, Advisor } = require('../models');
 
 exports.getRequirements = async (req, res) => {
     try {
@@ -90,6 +89,83 @@ exports.getPlanFeedback = async (req, res) => {
         res.json(feedback);
 
     } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+
+    
+};
+
+// api/me 
+exports.getCurrentStudent = async (req, res) => {
+    try {
+        
+        const userId = req.user.user_id;
+
+        
+        const student = await Student.findByPk(userId, {
+            include: [
+                {
+                    model: Plan,
+                    include: [
+                        {
+                            model: PlannedCourse,
+                            include: [Course]
+                        }
+                    ]
+                },
+                {
+                    model: Advisor,
+                    attributes: ['first_name', 'last_name']
+                }
+            ]
+        });
+
+        // If no student found
+        if (!student) {
+            return res.status(404).json(null);
+        }
+
+        // Format data before send
+        const response = {
+            student_id: student.student_id,
+            name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
+            first_name: student.first_name || "",
+            last_name: student.last_name || "",
+            major: student.major || "",
+            gpa: student.GPA || "",
+            year: student.year || null,
+            advisor: student.Advisor
+                ? `${student.Advisor.first_name} ${student.Advisor.last_name}`
+                : "",
+            
+            // Plans
+            plan: Array.isArray(student.Plans)
+                ? student.Plans.map(plan => {
+                    const courses = Array.isArray(plan.Planned_Courses)
+                        ? plan.Planned_Courses.map(pc => ({
+                            code: pc.Course?.course_code || "",
+                            title: pc.Course?.course_name || "",
+                            credits: pc.Course?.credits || 0,
+                            semester: pc.semester || "",
+                            year: pc.year || ""
+                        }))
+                        : [];
+
+                    return {
+                        id: plan.plan_id,
+                        status: plan.status || "",
+                        courses,
+                        credits: courses.reduce((sum, c) => sum + (c.credits || 0), 0)
+                    };
+                })
+                : []
+        };
+
+        // Send
+        res.json(response);
+
+    } catch (error) {
+        console.error("getCurrentStudent error:", error);
         res.status(500).json({ error: error.message });
     }
 };

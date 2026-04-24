@@ -13,7 +13,7 @@ import { mockData } from "./data/mockData.js";
 import "./App.css";
 
 // API layer
-import { getRequirements } from "../../api/auth.js";
+import { getCurrentStudent, getRequirements } from "../../api/students.js";
 import { getStudents as getAdvisorStudents, updatePlan } from "../../api/advisors.js";
 
 function AdvisingHubPage() {
@@ -64,6 +64,9 @@ export default function App() {
   const [studentRequirements, setStudentRequirements] = useState(null);
   const [advisorStudents, setAdvisorStudents] = useState(null);
 
+  // hold current logged-in student data from the backend
+  const [currentStudent, setCurrentStudent] = useState(null);
+
   // When editing a grad plan in the catalogue, store the selected plan id
   const [editingPlanId, setEditingPlanId] = useState(null);
 
@@ -74,6 +77,16 @@ export default function App() {
     async function loadBackendData() {
       try {
         if (session.roles?.includes("student")) {
+          // load the logged-in student profile
+          try {
+            const studentData = await getCurrentStudent(token);
+            setCurrentStudent(studentData || null);
+          } catch (err) {
+            console.error("Failed to load student data:", err);
+            setCurrentStudent(null);
+          }
+
+          // degree requirements
           const requirements = await getRequirements(token);
           setStudentRequirements(requirements);
         }
@@ -482,9 +495,8 @@ export default function App() {
       case "dashboard":
         return (
           <StudentDashboard
-            student={studentRecord}
+            student={currentStudent || {}}
             onSubmitPlan={handleSubmitPlan}
-            studentRequirements={studentRequirements}
           />
         );
 

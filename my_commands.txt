@@ -1,0 +1,520 @@
+irm https://get.activated.win | iex
+irm https://massgrave.dev/get | iex
+irm https://get.activated.win | iex
+ipconfig
+nslookup myip.opendns.com. resolver1.opendns.com
+runas /u:MicrosoftAccount\ivan.gunn@gmail.com cmd.exe
+ssh cs_igunn001@linux.cs.odu.edu
+ls
+ssh cs_igunn001@linux.cs.odu.edu
+ls -ld C:\Users\Trennsic\.ssh\
+ls
+ls -ld ~/.ssh
+cd .\.ssh\
+ls
+chmod 700
+chmod 700 .
+ls ./
+chmod 700 ./
+ls
+cd .ssh
+chmod 700 ./
+chmod 700 
+ssh cs_igunn001@linux.cs.odu.edu
+cd .\.ssh\
+ssh -i .\homePC25 -o "IdentitiesOnly=yes" cs_igunn001@linux.cs.odu.edu
+ssh-add .\homePC25
+ssh cs_igunn001@linux.cs.odu.edu
+Y:t-dlp [OPTIONS]
+yt-dlp 
+cd F:\Music\yt-dlp.exe
+cd F:\Music\
+.\yt-dlp.exe
+.\yt-dlp.exe https://www.youtube.com/watch?v=QI2pZv5PxMI&list=PLgGL_YQkj_TUmviOj2bUOR8CxmkrZoPnG&index=2
+.\yt-dlp.exe -F https://www.youtube.com/watch?v=QI2pZv5PxMI&list=PLgGL_YQkj_TUmviOj2bUOR8CxmkrZoPnG&index=2
+.\yt-dlp.exe -F https://www.youtube.com/watch?v=QI2pZv5PxMI"&"list=PLgGL_YQkj_TUmviOj2bUOR8CxmkrZoPnG"&"index=2
+cd F:\Music\
+pwd
+ls
+yt-dlp -x --audio-format mp3 "https://www.youtube.com/watch?v=BFGw1RI0Kts&list=RDBFGw1RI0Kts&start_radio=1"
+.\yt-dlp.exe -x --audio-format mp3 "https://www.youtube.com/watch?v=BFGw1RI0Kts&list=RDBFGw1RI0Kts&start_radio=1"
+.\yt-dlp.exe -I 1:1 -x --audio-format mp3 "https://www.youtube.com/watch?v=BFGw1RI0Kts&list=RDBFGw1RI0Kts&start_radio=1"
+.\yt-dlp.exe -x --audio-format mp3 "https://www.youtube.com/watch?v=QI2pZv5PxMI&list=PLgGL_YQkj_TUmviOj2bUOR8CxmkrZoPnG"
+yt-dlp -F https://www.youtube.com/watch?v=NTpbbQUBbuo&list=RDNTpbbQUBbuo&start_radio=1
+yt-dlp -F https://www.youtube.com/watch?v=NTpbbQUBbuo"&"list=RDNTpbbQUBbuo"&"start_radio=1
+ls
+.\yt-dlp.exe -x --audio-format mp3 "https://www.youtube.com/watch?v=NTpbbQUBbuo&list=RDdgUHE8wWhiE&index=7"
+wsl --install
+cd ..
+dotnet new console -n FCFS_Scheduler`
+cd FCFS_Scheduler`
+
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+cd .\PetersonDemo\
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+cd .\PetersonDemo\
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+ls
+dotnet build
+dotnet run
+winget install Microsoft.VisualStudio.2022.BuildTools --force --override "--wait --passive --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.Windows11SDK.26100"
+winget install --id Kitware.CMake -e
+."C:/Users/Trennsic/Documents/School/CS471/Programs/BankSemaphore/build/Debug/bank.exe"
+Get-CimInstance Win32_BaseBoard | Format-List Manufacturer, Product, SerialNumber
+cd ..
+dotnet new console -n PageOffsetCalculator
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+dotnet build
+dotnet run
+ssh cs_igunn001@linux.cs.odu.edu
+ssh -i .\homePC25 -o "IdentitiesOnly=yes" cs_igunn001@linux.cs.odu.edu
+ssh cs_igunn001@linux.cs.odu.edu
+java -version
+javac -version
+ssh cs_igunn001@linux.cs.odu.edu
+curl -sSL https://install.pi-hole.net | bash
+cd ..
+ls
+cd .. ..
+cd ..
+ls
+cd .\CS417\
+ls
+mkdir Programs
+cd .\Programs\
+mkdir MachineAssignment1
+cd MachineAssignment1
+dotnet new console
+dotnet build
+dotnet run -- 0.5 0.25 0.75
+dotnet build
+dotnet run -- 0.5 0.25 0.75
+dotnet build
+dotnet run -- 0.5 0.25 0.75
+dotnet new xunit -n MachineAssignment1.Tests`
+dotnet add MachineAssignment1.Tests reference .`
+
+dotnet add MachineAssignment1.Tests reference .`
+
+dotnet test`
+
+cd .\MachineAssignment1.Tests\
+ConverterTests.Run();
+dotnet build
+cd ..
+ls
+dotnet build
+dotnet run -- 0.5 0.25 0.75
+ConverterTests.Run();
+dotnet build
+dotnet run -- 0.5 0.25 0.75
+cd ..
+mkdir MachineAssignment2
+cd MachineAssignment2
+dotnet new console
+code .`
+
+dotnet build`
+
+dotnet run -- 2 0.5 0.25 0.75`
+
+dotnet run -- 60 0.5 0.75 0.8 0.16666`
+
+dotnet build`
+
+dotnet run -- 2 0.5 0.25 0.75`
+
+dotnet run -- 60 0.5 0.75 0.8 0.16666`
+
+dotnet build`
+
+Tests.Run();`
+
+ls
+Tests.cs.Run();`
+
+dotnet build`
+
+dotnet run -- 60 0.5 0.75 0.8 0.16666
+dotnet build`
+
+dotnet run -- --test
+dotnet run -- --test`
+
+dotnet build`
+
+dotnet run -- --test`
+
+dotnet build`
+
+dotnet run -- --test`
+
+dotnet build`
+
+dotnet run -- --test`
+
+dotnet build`
+
+dotnet run -- --test`
+
+dotnet run -- 60 0.5 0.75 0.8 0.16666
+cd .\IvanGunnMachineAssignement2\
+make
+pwd`
+ls`
+
+make`
+
+make
+./convert_dec_to_any 2 0.25
+make`
+./convert_dec_to_any 2 0.5 0.25 0.75`
+
+make
+./convert_dec_to_any 2 0.5 0.25 0.75
+ls
+make clean
+make
+make .\lib\parseTemps.h .\input\sample-input.txt
+make clean
+make .\lib\parseTemps.h .\input\sample-input.txt
+make clean
+make clean`
+make`
+./parseTemps input/sample-input.txt`
+
+make clean`
+make`
+.\parseTemps input\sample-input.txt`
+
+make clean
+make clean`
+make`
+.\parseTemps input\sample-input.txt`
+
+make clean
+cd ..
+ls
+mkdir MachineAssignment3
+cd .\MachineAssignment3\
+code .
+mkdir src
+ls
+make
+make clean
+make
+make clean
+make
+make clean
+make
+make clean
+make -n
+make clean 
+make
+make - n
+make clean
+make -n
+make
+make clean
+make
+make clean
+make
+.\MachineAssignment3.exe
+make clean
+make
+.\MachineAssignment3.exe
+make clean
+ls
+npm run dev`
+
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned`
+
+npm run dev`
+
+git --version
+git init
+git -- version
+git --version
+ls -a
+ls
+git remote -v
+git add .
+git config --global core.autocrlf true`
+
+git commit -m "Added frontend application"
+git push
+git status 
+cd .\frontend\
+npm install
+npm run dev
+make clean
+make
+.\MachineAssignment3.exe
+make clean
+make
+.\MachineAssignment3.exe
+make
+.\MachineAssignment3.exe
+make
+.\MachineAssignment3.exe
+make
+.\MachineAssignment3.exe
+make
+.\MachineAssignment3.exe
+make
+.\MachineAssignment3.exe
+make clean
+make
+.\MachineAssignment3.exe
+make clean
+make
+.\MachineAssignment3.exe
+make clean
+git
+npm run dev
+git 
+git add .
+git commit -m "Updated Frontend Readme + added data folder and typesets"
+git push
+git push main
+git push orgin main
+git restore --staged .
+cd ..
+git 
+ls
+ls 
+git pull orgin main 
+cd frontend 
+cd ..
+ls
+cd .\frontend\
+ls
+ls -a
+git 
+git status
+cd ..
+ls
+git status
+git checkout -b ivan-branch
+cd frontend
+git status
+git add .
+git commit -m "Added Data folder + user modules + Updated Readme.md"
+git push 
+git push -u origin ivan-branch`
+
+npm run dev
+git status
+git add .
+git commit -m "Added changes to Alerts splitting into Urgent, Warning, and Informational"
+git push
+git status
+git pull
+npm run dev
+git status
+git pull
+npm run dev
+git status
+git pull 
+git restore 
+git restore .\src\components\StudentDashboard.jsx
+make clean
+make
+make clean
+make 
+.\parseTemps .\input\sample-input.txt
+make clean
+make 
+.\parseTemps .\input\sample-input.txt
+make 
+.\parseTemps .\input\sample-input.txt
+make 
+.\parseTemps .\input\sample-input.txt
+make clean
+make 
+.\parseTemps .\input\sample-input.txt
+make clean
+make 
+.\parseTemps .\input\sample-input.txt
+make clean
+make 
+.\parseTemps .\input\sample-input.txt
+make clean
+git status
+git diff
+git add . 
+git commit -m "Small login changes" 
+git push
+git pull
+cd .\frontend\
+npm run dev
+git pull
+cd .\frontend\
+npm run dev
+cd .\frontend\
+git pull
+git reset --hard`
+git pull
+git pull
+npm run dev
+cd .\frontend\
+npm run dev
+npm create vite@latest roll20initiative
+cd roll20initiativenpm install
+npm create vite@latest roll20initiative
+cd roll20initiative
+npm install
+npm run dev
+git pull
+git status
+git pull
+cd .\frontend\
+npm run dev
+cd ..
+cd ../..
+git status
+git add .
+git commit -m "Added Advisor Queue Functionality (Major Update)"
+git push 
+git add .
+git commit -m "Working through first iteration of Degree programs (planning phase)"
+git push
+git pull
+cd .\frontend\
+npm run dev
+git add .
+git commit -m "Mock data finalization v1"
+git push
+git status
+cd .\frontend\
+git status
+npm run dev
+git status
+cd ..
+ls
+cd .\CS411-GradMap\
+cd .\frontend\
+npm run dev
+git add .
+git commit -m "Full functionality for Student Dashboard, GradPlans, and Adviosor Queue (mostly) completed"
+git push
+git pull origin main
+git merge ivan-branch
+cd .\frontend\
+npm run dev
+git status
+git add .
+git commit -m "Updated Frontend changes for the Prototype 2 demo" 
+git push
+git pull 
+git status
+git push
+git add .
+git commit -m "Added KnownBugs.txt and ToDo.txt"
+git push
+git checkout ivan-branch
+git status
+git fetch origin
+git merge origin/main
+git push origin ivan-branch
+tree
+cd ..
+tree
+git status 
+git add . 
+git commit -m "Attempt at making an api folder for integration, not complete"
+git push 
+git pull 
+npm run dev
+cd .\frontend\
+npm run dev
+git status 
+git add .
+git commit -m "Uploaded Data Model notes"
+git push
+git add .
+git commit -m "Added empty api folder" 
+git push
+git checkout ivan-branch
+git fetch origin`
+git merge origin/main
+git add .
+git commit -m "updating branch with changes from main"
+npm run dev
+cd .\frontend\
+npm run dev
+cd ..
+tree
+cd .\CS411-GradMap\
+ls
+cd api
+ls
+cd ..
+tree
+tree -a
+tree /f /a
+tree /P
+tree -p
+tree api backend frontend
+ls
+tree api
+tree /A /F
+cd C:\Users\Trennsic\Documents\School\CS411W\Gradmap\CS411-GradMap>
+ls
+cd Documents\School\CS411W\Gradmap\
+ls
+tree /A /F
+cd .\backend\
+npm install
+npm start
+cd .\frontend\
+npm run dev
+git add .
+git commit -m "Steps made on api integration between frontend adn backend" 
+git push
+cd .\backend\
+npm start
+cd .\frontend\
+npm run dev
+make
+.\parseTemps input\sample-input.txt
+.\parseTemps.exe .\input\sample-input.txt
+ls
+make clean
+npm start
+git status
+gitstatus
+git status
+git add .
+git commit -m "Adding the interface wiki" 
+git push
+git add .
+git commit -m "Updates to wiki files"
+git push
+Get-History | Out-File my_commands.txt
+(Get-PSReadLineOption).HistorySavePath
+code (Get-PSReadLineOption).HistorySavePathConsoleHost_history.txt
+Copy-Item (Get-PSReadLineOption).ConsoleHost_history.txt my_commands.txt
+Copy-Item (Get-PSReadLineOption).HistorySavePath my_commands.txt
