@@ -14,17 +14,32 @@ exports.getMyStudents = async (req, res) => {
 exports.reviewPlan = async (req, res) => {
     try {
         const { plan_id } = req.params;
-        const { status, advisor_notes } = req.body; 
+        const { status } = req.body; 
 
+        //Ensure the advisor is only sending a valid status
+        if (!['Approved', 'Needs Revision'].includes(status)) {
+            return res.status(400).json({ error: 'Invalid status. Must be Approved or Needs Revision.' });
+        }
+
+        //Find the plan
         const plan = await Plan.findByPk(plan_id);
-        if (!plan) return res.status(404).json({ error: 'Plan not found' });
+        if (!plan) {
+            return res.status(404).json({ error: 'Plan not found.' });
+        }
 
-        plan.status = status || plan.status;
-        plan.advisor_notes = advisor_notes || plan.advisor_notes;
+        //Update and save
+        plan.status = status;
         await plan.save();
 
-        res.json({ message: 'Plan updated', plan });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+        res.status(200).json({ 
+            message: `Success! Plan #${plan_id} has been marked as ${status}.`, 
+            plan 
+        });
+
+    } catch (error) {
+        console.error('Review Error:', error);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 exports.addFeedback = async (req, res) => {

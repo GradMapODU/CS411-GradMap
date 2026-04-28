@@ -106,6 +106,26 @@ const PlanFeedback = sequelize.define('PlanFeedback', {
     message: DataTypes.TEXT,
 }, { timestamps: false });
 
+const StudentAvailability = sequelize.define('StudentAvailability', {
+    availability_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    student_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    day: {
+        type: DataTypes.STRING(1), //'M', 'T', 'W', 'R', 'F'
+        allowNull: false,
+    },
+    start_time: {
+        type: DataTypes.STRING(5), // "HH:MM" format
+        allowNull: false,
+    },
+    end_time: {
+        type: DataTypes.STRING(5), // "HH:MM" format
+        allowNull: false,
+    }
+} ,{ timestamps: false, tableName: 'Student_availability' });
+
 //Relationships
 User.hasOne(Student, { foreignKey: 'student_id' });
 User.hasOne(Advisor, { foreignKey: 'advisor_id' });
@@ -132,6 +152,9 @@ PlanFeedback.belongsTo(Plan, { foreignKey: 'plan_id' });
 Advisor.hasMany(PlanFeedback, { foreignKey: 'advisor_id' });
 PlanFeedback.belongsTo(Advisor, { foreignKey: 'advisor_id' });
 
+Student.hasMany(StudentAvailability, { foreignKey: 'student_id' });
+StudentAvailability.belongsTo(Student, { foreignKey: 'student_id' });
+
 // Program to Course (Many-to-Many)
 Program.belongsToMany(Course, { through: ProgramCourse, foreignKey: 'program_id' });
 Course.belongsToMany(Program, { through: ProgramCourse, foreignKey: 'course_id' });
@@ -151,5 +174,5 @@ Course.belongsToMany(Course, {
 module.exports = { 
     sequelize, User, Student, Advisor, Admin, Course, 
     Plan, PlannedCourse, TimeSlot, Program, ProgramCourse, 
-    SemesterOffering, Prerequisite, PlanFeedback 
+    SemesterOffering, Prerequisite, PlanFeedback, StudentAvailability
 };

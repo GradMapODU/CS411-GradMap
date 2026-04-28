@@ -11,5 +11,6 @@ router.post('/generate-semester', studentCtrl.generateSemester);
 router.get('/plans/:plan_id/conflicts', studentCtrl.checkConflicts);
 router.get('/plans/:plan_id/feedback', studentCtrl.getPlanFeedback);
 router.post('/register', registerStudent);
+router.post('/availability', studentCtrl.addAvailability);
 
 module.exports = router;
