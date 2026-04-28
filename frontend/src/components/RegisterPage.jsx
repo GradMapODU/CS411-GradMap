@@ -1,7 +1,7 @@
 
 // frontend/src/components/RegisterPage.jsx
 import { useState } from "react";
-import { registerUser } from "../../../api/auth.js";
+import { registerUser } from "@api/auth.js";
 
 const ROLE_OPTIONS = [
   { key: "student", label: "Student" },

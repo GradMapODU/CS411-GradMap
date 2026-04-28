@@ -13,8 +13,8 @@ import { mockData } from "./data/mockData.js";
 import "./App.css";
 
 // API layer
-import { getCurrentStudent, getRequirements } from "../../api/students.js";
-import { getStudents as getAdvisorStudents, updatePlan } from "../../api/advisors.js";
+import { getCurrentStudent, getRequirements } from "@api/students.js";
+import { getStudents as getAdvisorStudents, updatePlan } from "@api/advisors.js";
 
 function AdvisingHubPage() {
   return (

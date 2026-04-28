@@ -1,7 +1,7 @@
 
 // frontend/src/components/LoginPage.jsx
 import { useState } from "react";
-import { loginUser } from "../../../api/auth.js";
+import { loginUser } from "@api/auth.js";
 
 export default function LoginPage({ onLoginSuccess, onGoRegister }) {
   const [username, setUsername] = useState("");

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { getCurrentStudent } from "../../../api/students.js";
+import { getCurrentStudent } from "@api/students.js";
 
 const EMPTY_ARRAY = [];
 

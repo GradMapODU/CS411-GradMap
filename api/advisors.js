@@ -1,25 +1,33 @@
 import { apiRequest } from "./client";
 
 export function getCurrentAdvisor(token) {
-  return apiRequest("/advisors/me", { token });
+  return apiRequest("/api/advisors/me", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 }
 
 export function getMyStudents(token) {
-  return apiRequest("/advisors/students", { token });
+  return apiRequest("/api/advisors/students", {
+    headers: { Authorization: `Bearer ${token}` }
+  });
 }
 
 export function reviewPlan(token, planId, data) {
-  return apiRequest(`/advisors/plans/${planId}`, {
+  return apiRequest(`/api/advisors/plans/${planId}`, {
     method: "PUT",
-    body: data,
-    token,
+    body: JSON.stringify(data),
+    headers: { Authorization: `Bearer ${token}` }
   });
 }
 
 export function addFeedback(token, planId, message) {
-  return apiRequest(`/advisors/plans/${planId}/feedback`, {
+  return apiRequest(`/api/advisors/plans/${planId}/feedback`, {
     method: "POST",
-    body: { message },
-    token,
+    body: JSON.stringify({ message }),
+    headers: { Authorization: `Bearer ${token}` }
   });
 }
+
+// Aliases used by App.jsx
+export const getStudents = getMyStudents;
+export const updatePlan = reviewPlan;
