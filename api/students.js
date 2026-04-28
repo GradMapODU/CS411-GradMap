@@ -1,15 +1,16 @@
+// api/students.js
 import { apiRequest } from "./client";
 
 export function getCurrentStudent(token) {
-  return apiRequest("/students/me", { token });
+  return apiRequest("/api/students/me", { token });
 }
 
 export function getRequirements(token) {
-  return apiRequest("/students/requirements", { token });
+  return apiRequest("/api/students/requirements", { token });
 }
 
 export function generateSemester(token, data) {
-  return apiRequest("/students/generate-semester", {
+  return apiRequest("/api/students/generate-semester", {
     method: "POST",
     body: data,
     token,
@@ -17,5 +18,12 @@ export function generateSemester(token, data) {
 }
 
 export function getPlanFeedback(token, planId) {
-  return apiRequest(`/students/plans/${planId}/feedback`, { token });
+  return apiRequest(`/api/students/plans/${planId}/feedback`, { token });
+}
+
+export function deletePlan(token, planId) {
+  return apiRequest(`/api/students/plans/${planId}`, {
+    method: "DELETE",
+    token,
+  });
 }

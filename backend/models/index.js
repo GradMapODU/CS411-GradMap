@@ -43,7 +43,7 @@ const Admin = sequelize.define('Administrator', {
 
 const Course = sequelize.define('Course', {
     course_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    course_code: DataTypes.STRING(10),
+    course_code: DataTypes.STRING(20),
     course_name: DataTypes.STRING(100),
     credits: DataTypes.INTEGER,
     department: DataTypes.STRING(100),
@@ -88,7 +88,7 @@ const Plan = sequelize.define('Plan', {
     student_id: DataTypes.INTEGER,
     degree_program: DataTypes.STRING(100),
     creation_date: DataTypes.DATE,
-    status: { type: DataTypes.ENUM('Draft', 'Pending', 'Approved', 'Needs Revision'), defaultValue: 'Draft' },
+    status: { type: DataTypes.ENUM('Draft', 'Pending', 'Approved', 'Needs Revision', 'Historical'), defaultValue: 'Draft' },
 }, { timestamps: false });
 
 const PlannedCourse = sequelize.define('Planned_Course', {
@@ -96,7 +96,12 @@ const PlannedCourse = sequelize.define('Planned_Course', {
     plan_id: DataTypes.INTEGER,
     course_id: DataTypes.INTEGER,
     semester: DataTypes.STRING(10),
-    year: DataTypes.INTEGER
+    year: DataTypes.INTEGER,
+    status: {
+        type: DataTypes.ENUM('Planned', 'Enrolled', 'Completed', 'Withdrawn'),
+        defaultValue: 'Planned'
+    },
+    grade: DataTypes.STRING(5)
 }, { timestamps: false });
 
 const PlanFeedback = sequelize.define('PlanFeedback', {

@@ -73,3 +73,24 @@ exports.registerStudent = async (req, res) => {
         return res.status(500).json({ message: 'Internal server error.' });
     }
 };
+
+exports.getCourses = async (req, res) => {
+  try {
+    const { major, department, q } = req.query;
+    const where = {};
+    if (department) where.department = department;
+    if (q) where.course_name = { [require('sequelize').Op.like]: `%${q}%` };
+    const courses = await Course.findAll({ where });
+    // Map DB fields to the shape the frontend expects
+    const mapped = courses.map(c => ({
+      code: c.course_code,
+      title: c.course_name,
+      credits: c.credits,
+      department: c.department,
+    }));
+    res.json(mapped);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch courses' });
+  }
+};

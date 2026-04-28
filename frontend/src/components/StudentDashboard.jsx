@@ -1,5 +1,7 @@
-import { useMemo, useState, useEffect } from "react";
-import { getCurrentStudent } from "@api/students.js";
+import { useMemo, useState } from "react";
+import { deletePlan } from "@api/students.js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const EMPTY_ARRAY = [];
 
@@ -16,7 +18,9 @@ function StatusBadge({ status }) {
 function formatDisplayDate(value) {
   if (!value) return "—";
 
-  const d = new Date(`${value}T00:00:00`);
+  const str = String(value);
+  const d = str.includes("T") ? new Date(str) : new Date(`${str}T00:00:00`);
+
   if (Number.isNaN(d.getTime())) return value;
 
   return d.toLocaleDateString("en-US", {
@@ -90,40 +94,7 @@ function getAdvisorReviewText(plan) {
   return "Not submitted";
 }
 
-export default function StudentDashboard({ token, onSubmitPlan }) {
-  // ---------------------------------------------------------------------------
-  // Student state
-  const [student, setStudent] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-    
-  useEffect(() => {
-    async function fetchStudent() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await getCurrentStudent(token);
-        setStudent(data || {});
-      } catch (err) {
-        console.error(err);
-        setStudent({});
-        setError(err.message || "Unable to load student data.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (token) {
-      fetchStudent();
-    } else {
-      setStudent({});
-      setLoading(false);
-      setError("No login token found.");
-    }
-  }, [token]);
-
+export default function StudentDashboard({ student, token, onSubmitPlan, onPlansChanged }) {
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
   const pctFromCredits =
@@ -140,7 +111,7 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
         ? pctFromCredits
         : null;
 
-  // rogress percent.
+  // rogress percent
   const classification = typeof progressPct === "number"
     ? progressPct < 25
       ? "Freshman"
@@ -162,27 +133,28 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
         ? String(student.gpa)
         : "";
 
-  // Determine which plans array to use
+  
   const plans = useMemo(() => {
-    return Array.isArray(student?.plan) ? student.plan : EMPTY_ARRAY;
+  const all = Array.isArray(student?.plan) ? student.plan : EMPTY_ARRAY;
+    return all.filter((p) => normalizeStatus(p?.status).toLowerCase() !== "historical");
   }, [student]);
 
   const selectedPlans = useMemo(() => {
-      const idSet = new Set(selectedPlanIds);
-      return plans.filter((row, i) => idSet.has(getPlanId(row, i)));
-    }, [plans, selectedPlanIds]);
+    const idSet = new Set(selectedPlanIds);
+    return plans.filter((row, i) => idSet.has(getPlanId(row, i)));
+  }, [plans, selectedPlanIds]);
 
-    const selectedCount = selectedPlans.length;
-    const selectedSinglePlan = selectedCount === 1 ? selectedPlans[0] : null;
+  const selectedCount = selectedPlans.length;
+  const selectedSinglePlan = selectedCount === 1 ? selectedPlans[0] : null;
 
-    const alertsSourcePlans = useMemo(() => {
-      return selectedCount > 0 ? selectedPlans : plans;
-    }, [plans, selectedCount, selectedPlans]);
+  const alertsSourcePlans = useMemo(() => {
+    return selectedCount > 0 ? selectedPlans : plans;
+  }, [plans, selectedCount, selectedPlans]);
 
-    const displayedPlanAlerts = useMemo(() => {
+  const displayedPlanAlerts = useMemo(() => {
     const merged = { informative: [], warnings: [], urgent: [] };
 
-    // No plans selected: show overall student alerts
+    
     if (selectedCount === 0) {
       const sourceAlerts = student?.alerts || {};
 
@@ -199,7 +171,7 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
       return merged;
     }
 
-    // One or more plans selected: only use alerts that belong to those plans
+    
     for (const plan of alertsSourcePlans) {
       const sourceAlerts = plan?.alerts || {};
 
@@ -243,7 +215,11 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
 
   const canSubmit = submittablePlans.length > 0;
   const canExportPdf = selectedCount >= 1;
-  const canDelete = selectedCount >= 1;
+  const canDelete = selectedCount >= 1 &&
+  selectedPlans.every((p) => {
+    const s = normalizeStatus(p.status).toLowerCase();
+    return s !== "approved" && s !== "historical";
+  });
   const canEdit = selectedCount === 1;
 
   const submitLabel =
@@ -278,24 +254,109 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
     console.log("Edit plan:", selectedSinglePlan);
   }
 
-  function handleDeleteSelected() {
+  async function handleDeleteSelected() {
     if (!selectedPlans.length) return;
-    console.log("Delete selected plans:", selectedPlans);
+
+    const plural = selectedPlans.length > 1;
+    const confirmMsg = plural
+      ? `Delete ${selectedPlans.length} plans? This cannot be undone.`
+      : `Delete the plan for ${selectedPlans[0].term}? This cannot be undone.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await Promise.all(
+        selectedPlans
+          .filter((p) => p.id != null)
+          .map((p) => deletePlan(token, p.id))
+      );
+      setSelectedPlanIds([]);
+      if (typeof onPlansChanged === "function") onPlansChanged();
+    } catch (err) {
+      console.error("Delete failed:", err);
+      window.alert(`Could not delete plan: ${err.message}`);
+    }
   }
 
   function handleExportSelectedPdf() {
     if (!selectedPlans.length) return;
-    console.log("Export to PDF (mock):", selectedPlans);
-  }
 
-  
-  if (loading) {
-    return (
-      <section className="card">
-        <h2>Student Dashboard</h2>
-        <p>Loading...</p>
-      </section>
-    );
+    const doc = new jsPDF();
+    const studentName = student?.name || "Student";
+    const major = student?.major || "";
+    const today = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    // Header
+    doc.setFontSize(18);
+    doc.text("GradMap — Plan Export", 14, 18);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`${studentName}${major ? ` • ${major}` : ""}`, 14, 26);
+    doc.text(`Generated ${today}`, 14, 32);
+
+    let cursorY = 42;
+
+    selectedPlans.forEach((plan, idx) => {
+      if (idx > 0) cursorY += 6;
+
+      // Plan heading
+      doc.setFontSize(13);
+      doc.setTextColor(20);
+      doc.text(plan.term || "Plan", 14, cursorY);
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(
+        `Status: ${plan.status || "—"}    Credits: ${plan.credits ?? 0}`,
+        14,
+        cursorY + 6
+      );
+      cursorY += 12;
+
+      // Course table
+      const rows = (plan.courses || []).map((c) => [
+        c.code || "",
+        c.title || "",
+        String(c.credits ?? ""),
+        c.status || "",
+        c.grade || "—",
+      ]);
+
+      autoTable(doc, {
+        startY: cursorY,
+        head: [["Code", "Title", "Credits", "Status", "Grade"]],
+        body: rows,
+        theme: "striped",
+        headStyles: { fillColor: [70, 90, 130] },
+        styles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+
+      cursorY = doc.lastAutoTable.finalY + 4;
+
+      // Advisor feedback
+      if (plan.advisorFeedback) {
+        doc.setFontSize(10);
+        doc.setTextColor(60);
+        doc.text("Advisor feedback:", 14, cursorY + 4);
+        const wrapped = doc.splitTextToSize(plan.advisorFeedback, 180);
+        doc.text(wrapped, 14, cursorY + 10);
+        cursorY += 10 + wrapped.length * 5;
+      }
+
+      // Page break if running low on space
+      if (cursorY > 260 && idx < selectedPlans.length - 1) {
+        doc.addPage();
+        cursorY = 20;
+      }
+    });
+
+    // Open in a new tab
+    const blobUrl = doc.output("bloburl");
+    window.open(blobUrl, "_blank");
   }
 
   if (!student || Object.keys(student).length === 0) {
@@ -332,10 +393,10 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
         <div className="panel">
           <h3>Progress</h3>
           <div className="progress">
-          <div
-            className="progress__bar"
-            style={{ width: progressPct != null ? `${progressPct}%` : "0%" }}
-          />
+            <div
+              className="progress__bar"
+              style={{ width: progressPct != null ? `${progressPct}%` : "0%" }}
+            />
           </div>
           <p>
             <b>{
@@ -540,7 +601,7 @@ export default function StudentDashboard({ token, onSubmitPlan }) {
           disabled={!canExportPdf}
           title={!canExportPdf ? "Select at least one plan." : undefined}
         >
-          Export PDF (mock)
+          Export PDF
         </button>
 
         {selectedCount > 0 && (

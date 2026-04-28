@@ -8,11 +8,11 @@ import RegisterPage from "./components/RegisterPage.jsx";
 import MyAvailabilityPage from "./components/MyAvailabilityPage.jsx";
 import GradPlansPage from "./components/GradPlansPage.jsx";
 import CourseCataloguePage from "./components/CourseCataloguePage.jsx";
+import { getCourseCatalog } from "@api/courses.js";
 
 import { mockData } from "./data/mockData.js";
 import "./App.css";
 
-// API layer
 import { getCurrentStudent, getRequirements } from "@api/students.js";
 import { getStudents as getAdvisorStudents, updatePlan } from "@api/advisors.js";
 
@@ -61,15 +61,14 @@ export default function App() {
   const [appData, setAppData] = useState(mockData);
 
   // backend-backed state
-  const [studentRequirements, setStudentRequirements] = useState(null);
+  const [_studentRequirements, setStudentRequirements] = useState(null);
   const [advisorStudents, setAdvisorStudents] = useState(null);
-
-  // hold current logged-in student data from the backend
   const [currentStudent, setCurrentStudent] = useState(null);
-
-  // When editing a grad plan in the catalogue, store the selected plan id
   const [editingPlanId, setEditingPlanId] = useState(null);
+  const [courseCatalogue, setCourseCatalogue] = useState([]);
 
+  
+  // Load backend data whenever the session changes (login, role switch, etc.)
   useEffect(() => {
     const token = session?.token;
     if (!token) return;
@@ -77,16 +76,9 @@ export default function App() {
     async function loadBackendData() {
       try {
         if (session.roles?.includes("student")) {
-          // load the logged-in student profile
-          try {
-            const studentData = await getCurrentStudent(token);
-            setCurrentStudent(studentData || null);
-          } catch (err) {
-            console.error("Failed to load student data:", err);
-            setCurrentStudent(null);
-          }
+          const studentData = await getCurrentStudent(token);
+          setCurrentStudent(studentData || null);
 
-          // degree requirements
           const requirements = await getRequirements(token);
           setStudentRequirements(requirements);
         }
@@ -103,6 +95,21 @@ export default function App() {
     loadBackendData();
   }, [session]);
 
+  useEffect(() => {
+    async function loadCourseCatalogue() {
+      if (!session?.token) return;
+      const major = currentStudent?.major;
+      try {
+        const courses = await getCourseCatalog(session.token, { major });
+        setCourseCatalogue(Array.isArray(courses) ? courses : []);
+      } catch (err) {
+        console.error("Failed to load course catalogue:", err);
+      }
+    }
+    loadCourseCatalogue();
+  }, [session?.token, currentStudent?.major]);
+
+
   function loginSuccess(s) {
     setSession(s);
     setView("app");
@@ -114,6 +121,7 @@ export default function App() {
     setSession(null);
     setView("login");
     setMenuOpen(false);
+    setCurrentStudent(null);
     setStudentRequirements(null);
     setAdvisorStudents(null);
     setEditingPlanId(null);
@@ -470,9 +478,11 @@ export default function App() {
     appData.advisors?.advisor1;
 
   const catalogueCourses =
-    appData?.courseCatalog?.[studentRecord?.major] ||
-    appData?.courseCatalog?.["Computer Science"] ||
-    [];
+    courseCatalogue.length > 0
+      ? courseCatalogue
+      : appData?.courseCatalog?.[studentRecord?.major] ||
+        appData?.courseCatalog?.["Computer Science"] ||
+        [];
 
   const showStudentSidebar = activeRole === "student";
 
@@ -496,10 +506,19 @@ export default function App() {
         return (
           <StudentDashboard
             student={currentStudent || {}}
+            token={session?.token}
             onSubmitPlan={handleSubmitPlan}
+            onPlansChanged={async () => {
+              if (!session?.token) return;
+              try {
+                const studentData = await getCurrentStudent(session.token);
+                setCurrentStudent(studentData || null);
+              } catch (err) {
+                console.error("Failed to refresh student data:", err);
+              }
+            }}
           />
         );
-
       case "gradplans":
         return (
           <GradPlansPage
@@ -530,6 +549,7 @@ export default function App() {
         return (
           <CourseCataloguePage
             student={studentRecord}
+            token={session?.token}
             courses={catalogueCourses}
             editingPlanId={editingPlanId}
             onSelectPlan={(planId) => setEditingPlanId(planId)}
@@ -677,4 +697,3 @@ export default function App() {
     </div>
   );
 }
-
