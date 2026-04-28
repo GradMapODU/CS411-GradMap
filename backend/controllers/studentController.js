@@ -78,7 +78,7 @@ exports.generateSemester = async (req, res) => {
         });
         
         let coursesAdded = 0;
-        let selectedCourses = []; // We need to track what we pick to prevent conflicts
+        let selectedCourses = []; 
 
         for (let offered of availableCourses) {
             if (coursesAdded >= 4) break;
