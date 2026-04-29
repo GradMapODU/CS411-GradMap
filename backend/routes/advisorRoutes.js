@@ -5,6 +5,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 
 router.use(authenticateToken, requireRole('Advisor'));
 
+router.get('/me', advisorCtrl.getCurrentAdvisor);
 router.get('/students', advisorCtrl.getMyStudents);
 router.put('/plans/:plan_id', advisorCtrl.reviewPlan);
 router.post('/plans/:plan_id/feedback', advisorCtrl.addFeedback);

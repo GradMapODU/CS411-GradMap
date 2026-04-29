@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 function StatusBadge({ status }) {
   const safe = status || "Unknown";
@@ -10,109 +10,90 @@ function StatusBadge({ status }) {
   return <span className={className}>{safe}</span>;
 }
 
+function formatDisplayDate(value) {
+  if (!value) return "";
+  const str = String(value);
+  const d = str.includes("T") ? new Date(str) : new Date(`${str}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default function AdvisorQueue({
   advisor,
-  students,
+  data,
   onApprovePlan,
   onRequestChanges,
 }) {
-  const [selectedSubmissionId, setSelectedSubmissionId] = useState(
-    advisor?.submissions?.[0]?.id || ""
-  );
-  const [feedbackDraft, setFeedbackDraft] = useState("");
+  
+  const students = Array.isArray(data?.students) ? data.students : [];
+  const submissions = Array.isArray(data?.submissions) ? data.submissions : [];
 
-  const assignedStudents = useMemo(() => {
-    if (!advisor?.assignedStudents || !students) return [];
-    return advisor.assignedStudents
-      .map((studentId) => ({
-        id: studentId,
-        ...students[studentId],
-      }))
-      .filter(Boolean);
-  }, [advisor, students]);
+  // Lookup 
+  const studentsById = {};
+  for (const s of students) studentsById[s.student_id] = s;
 
-  const submissionRows = useMemo(() => {
-    if (!advisor?.submissions || !students) return [];
+  
+  const submissionRows = submissions
+    .map((sub) => {
+      const student = studentsById[sub.studentId];
+      if (!student) return null;
+      const plan = (student.plan || []).find((p) => p.id === sub.planId);
+      if (!plan) return null;
+      return { ...sub, student, plan };
+    })
+    .filter(Boolean);
 
-    return advisor.submissions
-      .map((submission) => {
-        const student = students[submission.studentId];
-        if (!student) return null;
+  const [explicitSelectedId, setExplicitSelectedId] = useState("");
 
-        // Determine the correct plans array: prefer student's plan submissions, otherwise gradPlans
-        const plansArr = Array.isArray(student.plan) && student.plan.length > 0
-          ? student.plan
-          : Array.isArray(student.gradPlans)
-            ? student.gradPlans
-            : [];
-
-        // Find the plan matching the submission's planId
-        const plan = plansArr.find((p) => p.id === submission.planId);
-        if (!plan) return null;
-
-        // Ensure plan has a credits field for consistent display
-        let credits = plan.credits;
-        if (credits == null) {
-          if (typeof plan.plannedCredits === "number") {
-            credits = plan.plannedCredits;
-          } else if (Array.isArray(plan.courses)) {
-            credits = plan.courses.reduce((sum, c) => sum + Number(c?.credits ?? 0), 0);
-          }
-        }
-
-        return {
-          ...submission,
-          student,
-          plan: {
-            ...plan,
-            credits,
-            status: plan.status || "Planned",
-            advisorStatus: plan.advisorStatus || "",
-            submittedOn: plan.submittedOn || "",
-            reviewedBy: plan.reviewedBy || "",
-            reviewedOn: plan.reviewedOn || "",
-          },
-        };
-      })
-      .filter(Boolean);
-  }, [advisor, students]);
+  const [feedbackOverride, setFeedbackOverride] = useState(null);
 
   const selectedSubmission =
-    submissionRows.find((row) => row.id === selectedSubmissionId) ||
-    submissionRows[0] ||
-    null;
+    submissionRows.length === 0
+      ? null
+      : submissionRows.find((row) => row.id === explicitSelectedId) ||
+        submissionRows[0];
+
+  const feedbackDraft =
+    feedbackOverride !== null
+      ? feedbackOverride
+      : selectedSubmission?.plan?.advisorFeedback || "";
 
   function handleSelectSubmission(row) {
-    setSelectedSubmissionId(row.id);
-    setFeedbackDraft(row.plan.advisorFeedback || "");
+    setExplicitSelectedId(row.id);
+    setFeedbackOverride(null); // resync textarea to this submission's feedback
+  }
+
+  function handleFeedbackChange(e) {
+    setFeedbackOverride(e.target.value);
   }
 
   function handleApprove() {
     if (!selectedSubmission) return;
-
     onApprovePlan?.({
-      advisorId: advisor.id,
       studentId: selectedSubmission.studentId,
       planId: selectedSubmission.planId,
       feedback: feedbackDraft.trim(),
     });
+    setFeedbackOverride(null);
   }
 
   function handleRequestChanges() {
     if (!selectedSubmission) return;
-
     const trimmed = feedbackDraft.trim();
     if (!trimmed) {
       alert("Please add feedback before sending a plan back for changes.");
       return;
     }
-
     onRequestChanges?.({
-      advisorId: advisor.id,
       studentId: selectedSubmission.studentId,
       planId: selectedSubmission.planId,
       feedback: trimmed,
     });
+    setFeedbackOverride(null);
   }
 
   return (
@@ -120,22 +101,27 @@ export default function AdvisorQueue({
       <div className="advisorSidebar">
         <section className="card">
           <h2>Advisor Dashboard</h2>
-          <p className="muted">Signed in as {advisor?.name || "Advisor"}.</p>
+          <p className="muted">
+            Signed in as {advisor?.name || "Advisor"}
+            {advisor?.department ? ` • ${advisor.department}` : ""}.
+          </p>
         </section>
 
         <section className="card">
           <h3>Assigned Students</h3>
 
           <div className="list">
-            {assignedStudents.length ? (
-              assignedStudents.map((student) => (
-                <div className="list__item advisorMiniCard" key={student.id}>
+            {students.length ? (
+              students.map((student) => (
+                <div className="list__item advisorMiniCard" key={student.student_id}>
                   <div>
                     <b>{student.name}</b>
                     <br />
                     <small>
-                      {student.major} • GPA {student.gpa} • {student.progressPercent}%
-                      complete
+                      {student.major} • GPA {student.gpa || "—"}
+                      {student.progressPercent != null
+                        ? ` • ${Math.round(student.progressPercent)}% complete`
+                        : ""}
                     </small>
                   </div>
                 </div>
@@ -153,7 +139,6 @@ export default function AdvisorQueue({
             {submissionRows.length ? (
               submissionRows.map((row) => {
                 const isSelected = row.id === selectedSubmission?.id;
-
                 return (
                   <button
                     key={row.id}
@@ -165,20 +150,20 @@ export default function AdvisorQueue({
                   >
                     <div className="advisorSubmissionBtn__top">
                       <strong>{row.student.name}</strong>
-                      <StatusBadge status={row.plan.advisorStatus || row.plan.status} />
+                      <StatusBadge status={row.plan.status} />
                     </div>
 
                     <div className="advisorSubmissionBtn__meta">
-                      <span>{row.plan.term}</span>
+                      <span>{row.plan.term || "—"}</span>
                       <span>
-                        Submitted: {row.plan.submittedOn || "Not submitted"}
+                        Submitted: {formatDisplayDate(row.plan.submittedOn) || "—"}
                       </span>
                     </div>
                   </button>
                 );
               })
             ) : (
-              <p className="muted">No submitted schedules available.</p>
+              <p className="muted">No submitted schedules to review.</p>
             )}
           </div>
         </section>
@@ -197,32 +182,28 @@ export default function AdvisorQueue({
                 <h2>{selectedSubmission.student.name}</h2>
                 <p className="muted">
                   {selectedSubmission.student.major} • GPA{" "}
-                  {selectedSubmission.student.gpa} •{" "}
+                  {selectedSubmission.student.gpa || "—"} •{" "}
                   {selectedSubmission.student.creditsEarned}/
-                  {selectedSubmission.student.creditsRequired} credits
+                  {selectedSubmission.student.creditsRequired ?? "—"} credits
                 </p>
               </div>
 
-              <StatusBadge
-                status={
-                  selectedSubmission.plan.advisorStatus ||
-                  selectedSubmission.plan.status
-                }
-              />
+              <StatusBadge status={selectedSubmission.plan.status} />
             </div>
 
             <div className="advisorDetailGrid">
               <div className="advisorInfoBlock">
                 <h3>Schedule Summary</h3>
                 <p>
-                  <b>Term:</b> {selectedSubmission.plan.term}
+                  <b>Term:</b> {selectedSubmission.plan.term || "—"}
                 </p>
                 <p>
                   <b>Total Credits:</b> {selectedSubmission.plan.credits}
                 </p>
                 <p>
                   <b>Submitted On:</b>{" "}
-                  {selectedSubmission.plan.submittedOn || "Not submitted"}
+                  {formatDisplayDate(selectedSubmission.plan.submittedOn) ||
+                    "Not submitted"}
                 </p>
                 <p>
                   <b>Last Reviewed By:</b>{" "}
@@ -230,52 +211,51 @@ export default function AdvisorQueue({
                 </p>
                 <p>
                   <b>Last Reviewed On:</b>{" "}
-                  {selectedSubmission.plan.reviewedOn || "Not reviewed yet"}
+                  {formatDisplayDate(selectedSubmission.plan.reviewedOn) ||
+                    "Not reviewed yet"}
                 </p>
               </div>
 
               <div className="advisorInfoBlock">
                 <h3>Current Alerts</h3>
 
-                {selectedSubmission.student.alerts?.urgent?.length ? (
+                {selectedSubmission.plan.alerts?.urgent?.length ? (
                   <div className="alertGroup">
                     <b>Urgent</b>
                     <ul>
-                      {selectedSubmission.student.alerts.urgent.map((item, i) => (
+                      {selectedSubmission.plan.alerts.urgent.map((item, i) => (
                         <li key={`urgent-${i}`}>{item}</li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
 
-                {selectedSubmission.student.alerts?.warnings?.length ? (
+                {selectedSubmission.plan.alerts?.warnings?.length ? (
                   <div className="alertGroup">
                     <b>Warnings</b>
                     <ul>
-                      {selectedSubmission.student.alerts.warnings.map((item, i) => (
+                      {selectedSubmission.plan.alerts.warnings.map((item, i) => (
                         <li key={`warning-${i}`}>{item}</li>
                       ))}
                     </ul>
                   </div>
                 ) : null}
 
-                {selectedSubmission.student.alerts?.informative?.length ? (
+                {selectedSubmission.plan.alerts?.informative?.length ? (
                   <div className="alertGroup">
                     <b>Informational</b>
                     <ul>
-                      {selectedSubmission.student.alerts.informative.map(
-                        (item, i) => (
-                          <li key={`info-${i}`}>{item}</li>
-                        )
-                      )}
+                      {selectedSubmission.plan.alerts.informative.map((item, i) => (
+                        <li key={`info-${i}`}>{item}</li>
+                      ))}
                     </ul>
                   </div>
                 ) : null}
 
-                {!selectedSubmission.student.alerts?.urgent?.length &&
-                !selectedSubmission.student.alerts?.warnings?.length &&
-                !selectedSubmission.student.alerts?.informative?.length ? (
-                  <p className="muted">No alerts for this student.</p>
+                {!selectedSubmission.plan.alerts?.urgent?.length &&
+                !selectedSubmission.plan.alerts?.warnings?.length &&
+                !selectedSubmission.plan.alerts?.informative?.length ? (
+                  <p className="muted">No alerts for this plan.</p>
                 ) : null}
               </div>
             </div>
@@ -290,16 +270,22 @@ export default function AdvisorQueue({
                   <span>Credits</span>
                 </div>
 
-                {selectedSubmission.plan.courses?.map((course) => (
+                {(selectedSubmission.plan.courses || []).map((course, idx) => (
                   <div
                     className="advisorCourseTable__row"
-                    key={`${selectedSubmission.plan.id}-${course.code}`}
+                    key={`${selectedSubmission.plan.id}-${course.code}-${idx}`}
                   >
                     <span>{course.code}</span>
                     <span>{course.title}</span>
                     <span>{course.credits}</span>
                   </div>
                 ))}
+
+                {(selectedSubmission.plan.courses || []).length === 0 && (
+                  <div className="advisorCourseTable__row">
+                    <span className="muted">No courses on this plan.</span>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -310,16 +296,24 @@ export default function AdvisorQueue({
                 className="input advisorTextarea"
                 rows={6}
                 value={feedbackDraft}
-                onChange={(e) => setFeedbackDraft(e.target.value)}
+                onChange={handleFeedbackChange}
                 placeholder="Leave comments, revision notes, or approval notes here..."
               />
 
               <div className="advisorActionRow">
-                <button className="btn primary" type="button" onClick={handleApprove}>
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={handleApprove}
+                >
                   Approve Schedule
                 </button>
 
-                <button className="btn" type="button" onClick={handleRequestChanges}>
+                <button
+                  className="btn"
+                  type="button"
+                  onClick={handleRequestChanges}
+                >
                   Return for Changes
                 </button>
               </div>

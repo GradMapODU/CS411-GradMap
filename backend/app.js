@@ -6,8 +6,24 @@ const studentRoutes = require('./routes/studentRoutes.js');
 const advisorRoutes = require('./routes/advisorRoutes.js');
 const adminRoutes = require('./routes/adminRoutes.js');
 const courseRoutes = require('./routes/courseRoutes.js');
+const resourceRoutes = require('./routes/resourceRoutes.js');
 const app = express();
 
+const { DataTypes } = require('sequelize');
+
+// ── Resource model (defined here alongside other models) ──────────────────────
+const Resource = sequelize.define('Resource', {
+  id:          { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+  title:       { type: DataTypes.STRING(200),  allowNull: false },
+  url:         { type: DataTypes.STRING(500),  allowNull: false },
+  description: { type: DataTypes.TEXT },
+  category:    { type: DataTypes.STRING(100) },
+  icon:        { type: DataTypes.STRING(50) },
+  is_active:   { type: DataTypes.BOOLEAN, defaultValue: true },
+}, { timestamps: false, tableName: 'resources' });
+
+// Make the model available to the controller
+global._ResourceModel = Resource;
 
 // Middleware
 app.use(express.json());
@@ -18,6 +34,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/advisors', advisorRoutes);
 app.use('/api/admins', adminRoutes);
 app.use('/api/courses', courseRoutes);
+app.use('/api/resources', resourceRoutes);
 
 // Test endpoint
 app.get('/', (req, res) => {
@@ -181,78 +198,67 @@ async function seedDemoCourses() {
     { course_code: 'CS 222',     course_name: 'Introduction to Digital Image Processing',               credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces image representation, filtering, enhancement, segmentation, transforms, and color image processing.' },
     { course_code: 'CS 250',     course_name: 'Programming with C++',                                   credits: 4, category: 'Core',     department: 'Computer Science', course_description: 'Builds larger software systems in C++ with topics like classes, inheritance, dynamic structures, testing, and debugging.' },
     { course_code: 'CS 251',     course_name: 'Programming with Java',                                  credits: 4, category: 'Core',     department: 'Computer Science', course_description: 'Develops object-oriented programming and software design skills in Java using classes, inheritance, and common data structures.' },
-    { course_code: 'CS 252',     course_name: 'Introduction to Unix for Programmers',                   credits: 1, category: 'Core',     department: 'Computer Science', course_description: 'Introduces Unix/Linux tools for programmers including shells, files, editors, compiling, debugging, SSH, git, and IDE workflows.' },
-    { course_code: 'CS 300T',    course_name: 'Computers in Society',                                   credits: 3, category: 'General',  department: 'Computer Science', course_description: 'Examines the social impact of computing, including ethics, intellectual property, security, and public policy issues.' },
-    { course_code: 'CS 312',     course_name: 'Internet Concepts',                                      credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Introduces the Internet and the web, including protocols, publishing, search, communication, security, and internet culture.' },
-    { course_code: 'CS 315',     course_name: 'Computer Science Undergraduate Colloquium',              credits: 1, category: 'Elective', department: 'Computer Science', course_description: 'Speaker-based course exposing students to research areas, career paths, and scholarship opportunities in computer science.' },
-    { course_code: 'CS 330',     course_name: 'Object-Oriented Design and Programming',                 credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers object-oriented analysis and design, UML, multithreading, synchronization, and GUI development.' },
-    { course_code: 'CS 337',     course_name: 'OOP and Foreign Function Interfaces in Rust',            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Applies object-oriented patterns in Rust and introduces foreign function interfaces, including native Python library workflows.' },
-    { course_code: 'CS 350',     course_name: 'Introduction to Software Engineering',                   credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Team-based introduction to requirements, testing, documentation, issue tracking, version control, and agile development.' },
-    { course_code: 'CS 355',     course_name: 'Principles of Programming Languages',                    credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Surveys programming language paradigms, type systems, syntax, modularity, and parallel programming.' },
-    { course_code: 'CS 361',     course_name: 'Data Structures and Algorithms',                         credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Studies common abstract data types and the algorithms used to implement them, with time and space complexity analysis.' },
-    { course_code: 'CS 367',     course_name: 'Computer Science Internship',                            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Supervised professional internship experience in computer science and related industry work.' },
-    { course_code: 'CS 368',     course_name: 'Computer Science Internship',                            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Advanced supervised internship experience with reflective and professional development components.' },
-    { course_code: 'CS 381',     course_name: 'Introduction to Discrete Structures',                    credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers logic, proofs, sets, functions, induction, counting, relations, and graphs for computer science.' },
-    { course_code: 'CS 390',     course_name: 'Introduction to Theoretical Computer Science',           credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Introduces automata, formal languages, grammars, Turing machines, and unsolvable problems.' },
-    { course_code: 'CS 402/502', course_name: 'Formal Software Foundations',                            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Focuses on verified software, functional programming, theorem proving, proof automation, and certified code extraction.' },
-    { course_code: 'CS 410/510', course_name: 'Professional Workforce Development I',                   credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Project-centered professional course covering problem selection, feasibility, requirements, presentations, and documentation.' },
-    { course_code: 'CS 411W/511',course_name: 'Professional Workforce Development II',                  credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Continues the project and professional documentation sequence with emphasis on formal communication and deliverables.' },
-    { course_code: 'CS 417/517', course_name: 'Computational Methods and Software',                     credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Studies algorithms and software used in scientific and numerical computing.' },
-    { course_code: 'CS 418',     course_name: 'Web Programming',                                        credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers modern web programming concepts including web servers, applications, and client/server interaction.' },
-    { course_code: 'CS 431',     course_name: 'Web Server Design',                                      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Examines server-side web systems, hosting architectures, APIs, and scalable web service design.' },
-    { course_code: 'CS 432',     course_name: 'Web Science',                                            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Explores the web as a decentralized information system and studies its technical and social dimensions.' },
-    { course_code: 'CS 441',     course_name: 'App Development for Smart Devices',                      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Project-based course on designing and building applications for smart devices.' },
-    { course_code: 'CS 450',     course_name: 'Database Concepts',                                      credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Introduces relational database design, SQL, normalization, and data management concepts.' },
-    { course_code: 'CS 455',     course_name: 'Introduction to Networks and Communications',            credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Studies network architecture, protocols, communication models, and distributed connectivity.' },
-    { course_code: 'CS 460',     course_name: 'Computer Graphics',                                      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers rendering, geometric modeling, transformations, and interactive graphics systems.' },
-    { course_code: 'CS 462',     course_name: 'Cybersecurity Fundamentals',                             credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Surveys core cybersecurity principles including threats, risk, controls, and secure design.' },
-    { course_code: 'CS 463',     course_name: 'Cryptography for Cybersecurity',                         credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces classical and modern cryptographic systems with applications to secure computing.' },
-    { course_code: 'CS 464',     course_name: 'Networked Systems Security',                             credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Focuses on securing networked systems through monitoring, hardening, and attack analysis.' },
-    { course_code: 'CS 465',     course_name: 'Information Assurance',                                  credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Explores policy, governance, risk management, and assurance practices for information systems.' },
-    { course_code: 'CS 466',     course_name: 'Principles and Practice of Cyber Defense',               credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Applies defensive cybersecurity techniques including monitoring, response, and hardening.' },
-    { course_code: 'CS 467',     course_name: 'Introduction to Reverse Software Engineering',           credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces reverse engineering workflows for binaries, malware analysis, and code recovery.' },
-    { course_code: 'CS 469',     course_name: 'Data Analytics for Cybersecurity',                       credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Uses data analytics and visualization methods to identify and analyze cybersecurity events.' },
-    { course_code: 'CS 472',     course_name: 'Network and Security',                                   credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Examines advanced networking topics with emphasis on security models, attacks, and defenses.' },
-    { course_code: 'CS 476',     course_name: 'Systems Programming',                                    credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Builds low-level software using process control, memory management, concurrency, and OS interfaces.' },
-    { course_code: 'CS 478',     course_name: 'Computational Geometry, Methods and Applications',      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Explores algorithms for geometric computation and their applications in modeling and analysis.' },
-    { course_code: 'CS 480',     course_name: 'Introduction to Artificial Intelligence',                credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces intelligent agents, search, reasoning, and foundational artificial intelligence techniques.' },
-    { course_code: 'CS 486',     course_name: 'Introduction to Parallel Computing',                     credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces parallel architectures, decomposition strategies, and parallel program design.' },
-    { course_code: 'CS 487',     course_name: 'Applied Parallel Computing',                             credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Applies practical techniques for scalable parallel programming and performance tuning.' },
-    { course_code: 'CS 488',     course_name: 'Principles of Compiler Construction',                    credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Studies lexical analysis, parsing, semantic analysis, code generation, and compiler organization.' },
-    { course_code: 'CS 491',     course_name: 'Honors Research I',                                      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Supports mentored honors research in computer science through proposal and initial investigation.' },
-    { course_code: 'CS 492',     course_name: 'Honors Research II',                                     credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Continues honors research work with emphasis on analysis, writing, and final deliverables.' },
-    { course_code: 'CS 499W',    course_name: 'Honors Thesis in Computer Science',                      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Culminating honors thesis experience focused on substantial written and technical work.' },
+    { course_code: 'CS 252',     course_name: 'Introduction to Unix for Programmers',                   credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Provides hands-on experience with Unix/Linux operating systems, shells, scripting, and system tools.' },
+    { course_code: 'CS 300T',    course_name: 'Technologies for 21st-Century Writing',                  credits: 3, category: 'General',  department: 'Computer Science', course_description: 'Prepares students for professional writing in technical environments, using digital tools and collaborative platforms.' },
+    { course_code: 'CS 312',     course_name: 'Web Programming',                                        credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers HTML, CSS, JavaScript, and server-side technologies for building dynamic web applications.' },
+    { course_code: 'CS 315',     course_name: 'Introduction to Database Systems',                       credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Introduces relational databases, SQL, database design, and basic concepts of data storage and retrieval.' },
+    { course_code: 'CS 330',     course_name: 'Object-Oriented Programming and Design',                 credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers object-oriented concepts including design patterns, UML, testing, and advanced Java.' },
+    { course_code: 'CS 350',     course_name: 'Introduction to Software Engineering',                   credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Introduces software development lifecycle, agile methods, requirements, design, testing, and project management.' },
+    { course_code: 'CS 355',     course_name: 'Introduction to Computer Networks',                      credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers network architecture, protocols, TCP/IP, routing, and basic network security concepts.' },
+    { course_code: 'CS 361',     course_name: 'Advanced Data Structures and Algorithms',                credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Studies advanced algorithms, complexity analysis, trees, graphs, sorting, and problem-solving strategies.' },
+    { course_code: 'CS 381',     course_name: 'Discrete Structures',                                    credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Introduces mathematical structures for computer science including logic, sets, relations, graphs, and combinatorics.' },
+    { course_code: 'CS 390',     course_name: 'Formal Languages and Automata',                          credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers automata theory, formal grammars, regular and context-free languages, and computability.' },
+    { course_code: 'CS 410/510', course_name: 'Introduction to Artificial Intelligence',                credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces search, knowledge representation, machine learning, and reasoning in AI systems.' },
+    { course_code: 'CS 411W/511',course_name: 'Software Engineering II (Writing Intensive)',             credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Continues software engineering with emphasis on design documentation, team projects, and technical writing.' },
+    { course_code: 'CS 418',     course_name: 'Introduction to Computer Graphics',                      credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers 2D/3D graphics programming, rendering pipelines, transformations, and OpenGL basics.' },
+    { course_code: 'CS 431',     course_name: 'Theory of Computation',                                  credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Examines Turing machines, decidability, complexity classes, and the theoretical limits of computation.' },
+    { course_code: 'CS 432',     course_name: 'Web Science',                                            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Studies the architecture, graph structure, and algorithms underlying the World Wide Web and social networks.' },
+    { course_code: 'CS 441',     course_name: 'Database Management Systems',                            credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Advanced topics in database systems including query optimization, transactions, concurrency, and NoSQL.' },
+    { course_code: 'CS 450',     course_name: 'Operating Systems',                                      credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers process management, scheduling, memory, file systems, I/O, and security in operating systems.' },
+    { course_code: 'CS 455',     course_name: 'Computer Architecture',                                  credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Examines processor design, instruction-level parallelism, memory hierarchy, and multicore architecture.' },
+    { course_code: 'CS 460',     course_name: 'Cyber Attack and Defense',                               credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers offensive and defensive security concepts, penetration testing, and security analysis techniques.' },
+    { course_code: 'CS 462',     course_name: 'Machine Learning',                                       credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Introduces supervised and unsupervised learning, neural networks, evaluation, and real-world applications.' },
+    { course_code: 'CS 463',     course_name: 'Big Data Analytics',                                     credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers Hadoop, Spark, MapReduce, and analytics pipelines for processing large-scale datasets.' },
+    { course_code: 'CS 467',     course_name: 'Computer Vision',                                        credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Studies image classification, object detection, segmentation, and deep learning methods for visual data.' },
+    { course_code: 'CS 476',     course_name: 'Compiler Design',                                        credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Covers lexing, parsing, semantic analysis, code generation, and optimization in compiler construction.' },
+    { course_code: 'CS 478',     course_name: 'Network Security',                                       credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Studies network threats, cryptography, firewalls, intrusion detection, and secure protocol design.' },
+    { course_code: 'CS 480',     course_name: 'Senior Project I',                                       credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'First semester of the capstone senior design project involving requirements analysis and prototype development.' },
+    { course_code: 'CS 481',     course_name: 'Senior Project II',                                      credits: 3, category: 'Core',     department: 'Computer Science', course_description: 'Completion and presentation of the senior design project developed in CS 480.' },
+    { course_code: 'CS 486',     course_name: 'Distributed Systems',                                    credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers distributed architectures, consistency, fault tolerance, and cloud-based system design.' },
+    { course_code: 'CS 487',     course_name: 'Blockchain and Decentralized Applications',              credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Explores blockchain technology, smart contracts, consensus mechanisms, and decentralized app development.' },
+    { course_code: 'CS 488',     course_name: 'Cloud Computing',                                        credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers cloud service models, virtualization, containers, Kubernetes, and cloud-native application design.' },
 
     // ---------- Cybersecurity ----------
-    { course_code: 'CYSE 200T', course_name: 'Cybersecurity, Technology, and Society',  credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Introduces cybersecurity as a discipline and explores its role in society, technology, and policy.' },
-    { course_code: 'CYSE 300',  course_name: 'Introduction to Cybersecurity',           credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Introduces core cybersecurity principles, threats, vulnerabilities, and defensive strategies.' },
-    { course_code: 'CYSE 301',  course_name: 'Cyber Defense Fundamentals',              credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Builds practical defensive security skills including monitoring, incident response, and system hardening.' },
-    { course_code: 'CYSE 305',  course_name: 'Operating Systems and Systems Security',  credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Examines operating systems concepts with emphasis on secure configuration and protection mechanisms.' },
-    { course_code: 'CYSE 406',  course_name: 'Network Security',                        credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Studies secure network design, protocols, monitoring, and common network-based attacks and defenses.' },
-    { course_code: 'CYSE 425',  course_name: 'Cybersecurity Analytics',                 credits: 3, category: 'Elective', department: 'Cybersecurity', course_description: 'Applies analytics and data-driven methods to threat detection, response, and cybersecurity decision making.' },
+    { course_code: 'CYSE 200T',  course_name: 'Introduction to Cybersecurity',                          credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Introduces the cybersecurity landscape including threats, defenses, policy, ethics, and career paths.' },
+    { course_code: 'CYSE 300',   course_name: 'Cyber Foundations',                                      credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Covers core cybersecurity principles: CIA triad, cryptography, access control, and risk management.' },
+    { course_code: 'CYSE 301',   course_name: 'Ethical Hacking',                                        credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Teaches penetration testing methodology, reconnaissance, exploitation, and responsible disclosure practices.' },
+    { course_code: 'CYSE 302',   course_name: 'Security Operations',                                    credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Covers SOC operations, SIEM tools, incident response, threat intelligence, and log analysis.' },
+    { course_code: 'CYSE 400',   course_name: 'Advanced Network Security',                              credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Examines advanced firewall configurations, VPNs, IDS/IPS, zero trust, and network threat modeling.' },
+    { course_code: 'CYSE 401',   course_name: 'Digital Forensics',                                      credits: 3, category: 'Elective', department: 'Cybersecurity', course_description: 'Covers forensic evidence collection, disk imaging, file recovery, and chain-of-custody for investigations.' },
+    { course_code: 'CYSE 402',   course_name: 'Malware Analysis',                                       credits: 3, category: 'Elective', department: 'Cybersecurity', course_description: 'Studies static and dynamic analysis of malware, reverse engineering techniques, and sandbox tools.' },
+    { course_code: 'CYSE 450',   course_name: 'Cybersecurity Policy and Law',                           credits: 3, category: 'General',  department: 'Cybersecurity', course_description: 'Examines legal frameworks, compliance standards (NIST, HIPAA, GDPR), and policy creation for cybersecurity.' },
+    { course_code: 'CYSE 480',   course_name: 'Cybersecurity Capstone I',                               credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'First part of the capstone experience; students develop a security-focused project proposal and prototype.' },
+    { course_code: 'CYSE 481',   course_name: 'Cybersecurity Capstone II',                              credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Completion and defense of the capstone project begun in CYSE 480.' },
   ];
 
-  for (const def of courses) {
-    const exists = await Course.findOne({ where: { course_code: def.course_code } });
+  for (const c of courses) {
+    const exists = await Course.findOne({ where: { course_code: c.course_code } });
     if (!exists) {
-      await Course.create({
-        ...def,
-        seat_availability: 30,
-      });
+      await Course.create(c);
     }
   }
-
-  console.log(`Demo courses seeded: ${courses.length}`);
+  console.log('Demo courses seeded.');
 }
+
 async function seedDemoPlans() {
   const { Course, Plan, PlannedCourse } = require('./models/index.js');
  
-  // Map "CS 250" -> Course row, so we can reference by code
+  
   const courseRows = await Course.findAll();
   const C = {};
   for (const c of courseRows) C[c.course_code] = c;
  
-  // Approximate calendar dates for "Plan creation" so the timeline is realistic
+  
   const semesterStart = {
     Fall:   (year) => new Date(`${year}-08-01`),
     Spring: (year) => new Date(`${year}-01-01`),
@@ -260,7 +266,7 @@ async function seedDemoPlans() {
     Winter: (year) => new Date(`${year}-12-15`),
   };
  
-  // Helper: create one Plan for a single semester and bulk-insert its courses
+  
   async function createSemesterPlan(studentUserId, degreeProgram, semester, year, planStatus, courses) {
     const plan = await Plan.create({
       student_id: studentUserId,
@@ -340,7 +346,7 @@ async function seedDemoPlans() {
       ['CS 486', 'Completed', 'A' ],
     ]);
 
-    // Senior year — current semesterd
+    // Senior year — current semester
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2026, 'Approved', [
       ['CS 431', 'Enrolled', null],
       ['CS 478', 'Enrolled', null],
@@ -371,6 +377,7 @@ async function seedDemoPlans() {
     console.log('Student2: seeded 1 Draft plan for Fall 2026');
   }
 }
+
 async function seedDemoFeedback() {
   const { Plan, PlanFeedback } = require('./models/index.js');
 
@@ -408,6 +415,211 @@ async function seedDemoFeedback() {
     console.log('Advisor feedback seeded for Student1 Spring 2027');
   }
 }
+
+// ── Resource seed ─────────────────────────────────────────────────────────────
+async function seedResources() {
+  const count = await Resource.count();
+  if (count > 0) return; // already seeded
+
+  const resources = [
+    // Registration
+    {
+      title: 'ODU Homepage',
+      url: 'https://www.odu.edu',
+      description: 'Official Old Dominion University website.',
+      category: 'Registration',
+      icon: '🏫',
+    },
+    {
+      title: 'Student Registration',
+      url: 'https://www.odu.edu/registration',
+      description: 'Register for classes, view holds',
+      category: 'Registration',
+      icon: '📝',
+    },
+    {
+      title: 'University Registrar',
+      url: 'https://www.odu.edu/registrar',
+      description: 'Transcripts, applications, and records.',
+      category: 'Registration',
+      icon: '🏛️',
+    },
+    {
+      title: 'Course Schedules',
+      url: 'https://www.odu.edu/registration/course-schedules',
+      description: 'Browse course offerings by semester, campus, and department.',
+      category: 'Registration',
+      icon: '🗓️',
+    },
+    {
+      title: 'Add / Drop / Withdraw',
+      url: 'https://www.odu.edu/registration/how-to-register',
+      description: 'Change your schedule each semester.',
+      category: 'Registration',
+      icon: '🔄',
+    },
+    {
+      title: 'LEO Online',
+      url: 'https://www.odu.edu/administrative-banner-systems/leo-online',
+      description: 'View your schedule, grades, financial aid, and account balance.',
+      category: 'Registration',
+      icon: '🦁',
+    },
+
+    // Academic Planning
+    {
+      title: 'Academic Calendar',
+      url: 'https://www.odu.edu/academics/calendar',
+      description: 'Key dates: registration windows, finals, holidays, commencement, ect.',
+      category: 'Academic Planning',
+      icon: '📅',
+    },
+    {
+      title: 'Course Catalogue',
+      url: 'https://catalog.odu.edu/courses/',
+      description: 'Full listof undergraduate and graduate courses with descriptions.',
+      category: 'Academic Planning',
+      icon: '📖',
+    },
+    {
+      title: 'Academic Advising',
+      url: 'https://www.odu.edu/advising',
+      description: 'Connect with your academic advisor.',
+      category: 'Academic Planning',
+      icon: '🧭',
+    },
+    {
+      title: 'Degree Works (Audit Offical)',
+      url: 'https://degree.odu.edu',
+      description: 'Track your degree progress and see what remain.',
+      category: 'Academic Planning',
+      icon: '✅',
+    },
+    {
+      title: 'Transfer Credits',
+      url: 'https://www.odu.edu/transfer/vccs-transfer-guide',
+      description: 'Look up how transfer courses map to ODU equivalents.',
+      category: 'Academic Planning',
+      icon: '🔁',
+    },
+
+    // Student Services
+    {
+      title: 'Student Affairs',
+      url: 'https://www.odu.edu/virginia-health-sciences/about-us/administrative-offices/student-affairs',
+      description: 'Campus info, student organizations, and support services.',
+      category: 'Student Services',
+      icon: '🤝',
+    },
+    {
+      title: 'ODU Libraries',
+      url: 'https://www.odu.edu/library',
+      description: 'Access research databases, e-books, journals, and study rooms.',
+      category: 'Student Services',
+      icon: '📚',
+    },
+    {
+      title: 'Office of Disability Services',
+      url: 'https://www.odu.edu/accessibility',
+      description: 'Support for students with disabilities.',
+      category: 'Student Services',
+      icon: '♿',
+    },
+    {
+      title: 'Career Development Services',
+      url: 'https://www.odu.edu/career-leadership',
+      description: 'Resume reviews, career fairs, job postings, and interview prep.',
+      category: 'Student Services',
+      icon: '💼',
+    },
+    {
+      title: 'Writing Center',
+      url: 'https://www.odu.edu/al/centers/writing-center',
+      description: 'Free writing tutoring for all stages of the writing process.',
+      category: 'Student Services',
+      icon: '✍️',
+    },
+
+    // Financial Aid
+    {
+      title: 'Office of Financial Aid',
+      url: 'https://www.odu.edu/financial-aid',
+      description: 'Scholarships, grants, loans, work-study, and FAFSA guidance.',
+      category: 'Financial Aid',
+      icon: '💰',
+    },
+    {
+      title: 'Student Accounts',
+      url: 'https://www.odu.edu/finance/accounts-receivable',
+      description: 'View and pay your tuition bill, set up payment plans.',
+      category: 'Financial Aid',
+      icon: '💳',
+    },
+    {
+      title: 'Tuition Rates',
+      url: 'https://www.odu.edu/tuition/rates',
+      description: 'Current tuition, fees, housing, and meal plan cost estimates.',
+      category: 'Financial Aid',
+      icon: '🧾',
+    },
+
+    // IT & Campus Tools
+    {
+      title: 'IT Help Desk',
+      url: 'https://www.odu.edu/technology-services/helpdesk',
+      description: 'IT Tech support for Midas accounts, email, Wi-Fi, and software.',
+      category: 'IT',
+      icon: '🖥️',
+    },
+    {
+      title: 'Canvas',
+      url: 'https://www.odu.edu/technology-services/canvas',
+      description: 'Access your course materials, assignments, and grades online.',
+      category: 'IT',
+      icon: '🖊️',
+    },
+    {
+      title: 'ODU Email',
+      url: 'https://www.odu.edu/technology-services/email',
+      description: 'Access your ODU student email via Microsoft Outlook.',
+      category: 'IT',
+      icon: '📧',
+    },
+    {
+      title: 'Software Downloads',
+      url: 'https://www.odu.edu/technology-services/software-services',
+      description: 'Free or Discounted software available to enrolled students.',
+      category: 'IT',
+      icon: '⬇️',
+    },
+
+    // Health
+    {
+      title: 'Student Health Services',
+      url: 'https://www.odu.edu/studenthealth',
+      description: 'On-campus medical care / health resources.',
+      category: 'Health',
+      icon: '🏥',
+    },
+    {
+      title: 'Counseling Services',
+      url: 'https://www.odu.edu/counselingservices',
+      description: 'Free confidential counseling for students.',
+      category: 'Health',
+      icon: '🧠',
+    },
+    {
+      title: 'Rec & Wellness Center',
+      url: 'https://www.odu.edu/recreation-wellness',
+      description: 'Fitness facilities, group classes, and wellness programs.',
+      category: 'Health',
+      icon: '🏋️',
+    },
+  ];
+
+  await Resource.bulkCreate(resources);
+  console.log(`Seeded ${resources.length} resources.`);
+}
 //#endregion
 
 // Sync database and start server
@@ -423,6 +635,7 @@ sequelize.sync({ force: true }) // { force: true } to reset DB
         await assignDemoAdvisors();
         await seedDemoPlans(); 
         await seedDemoFeedback();
+        await seedResources();
         app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     })
     .catch(err => console.error('DB connection error:', err));

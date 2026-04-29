@@ -8,6 +8,7 @@ import RegisterPage from "./components/RegisterPage.jsx";
 import MyAvailabilityPage from "./components/MyAvailabilityPage.jsx";
 import GradPlansPage from "./components/GradPlansPage.jsx";
 import CourseCataloguePage from "./components/CourseCataloguePage.jsx";
+import ResourcesPage from "./components/ResourcesPage.jsx";
 import { getCourseCatalog } from "@api/courses.js";
 
 import { mockData } from "./data/mockData.js";
@@ -22,17 +23,6 @@ function AdvisingHubPage() {
       <h2>Advising Hub</h2>
       <p className="muted">
         Placeholder: advisor info + contact (office hours, booking links, queue, notes).
-      </p>
-    </section>
-  );
-}
-
-function ResourcesPage() {
-  return (
-    <section className="card">
-      <h2>Resources</h2>
-      <p className="muted">
-        Placeholder: links to school resources (registrar, tutoring, financial aid, policies, etc.).
       </p>
     </section>
   );
@@ -576,7 +566,7 @@ export default function App() {
         return <AdvisingHubPage />;
 
       case "resources":
-        return <ResourcesPage />;
+        return <ResourcesPage token={session?.token} />;
 
       default:
         return null;

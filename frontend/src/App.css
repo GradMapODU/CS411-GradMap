@@ -918,3 +918,265 @@ small{
     grid-template-columns:110px minmax(0, 1fr) 70px;
   }
 }
+
+/* =========================================================
+   ResourcesPage
+========================================================= */
+
+/* ── Page shell ── */
+.resourcesPage {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.resourcesPage__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.resourcesPage__title {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resourcesPage__subtitle {
+  margin: 0;
+  font-size: .875rem;
+}
+
+.resourcesPage__meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: .8rem;
+  white-space: nowrap;
+}
+
+/* ── Search ── */
+.resourcesPage__searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.resourcesPage__searchIcon {
+  position: absolute;
+  left: 12px;
+  font-size: .9rem;
+  pointer-events: none;
+  opacity: .6;
+}
+
+.resourcesPage__search {
+  width: 100%;
+  padding: 9px 36px 9px 36px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: .9rem;
+  outline: none;
+  transition: border-color .15s;
+}
+
+.resourcesPage__search:focus {
+  border-color: var(--accent);
+}
+
+.resourcesPage__search::placeholder {
+  color: var(--muted);
+}
+
+.resourcesPage__searchClear {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: .85rem;
+  padding: 4px;
+  line-height: 1;
+}
+
+.resourcesPage__searchClear:hover {
+  color: var(--text);
+}
+
+/* ── States ── */
+.resourcesPage__state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 0;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.resourcesPage__state--error {
+  color: #ff8f8f;
+}
+
+.resourcesPage__resultCount {
+  margin: -8px 0 0;
+  font-size: .8rem;
+}
+
+/* ── Body ── */
+.resourcesPage__body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Category section ── */
+.resourceCategory {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.resourceCategory__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 14px;
+  font-size: .9rem;
+  font-weight: 600;
+  background: rgba(255,255,255,.04);
+  border-bottom: 1px solid var(--border);
+}
+
+.resourceCategory__emoji {
+  font-size: 1rem;
+}
+
+.resourceCategory__count {
+  margin-left: auto;
+  font-size: .75rem;
+  font-weight: 400;
+  color: var(--muted);
+  background: rgba(255,255,255,.06);
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+
+/* Category accent left-border colours */
+.resCat--blue   { border-left: 3px solid #4f7cff; }
+.resCat--teal   { border-left: 3px solid #38c9b0; }
+.resCat--purple { border-left: 3px solid #a78bfa; }
+.resCat--green  { border-left: 3px solid #4ade80; }
+.resCat--orange { border-left: 3px solid #fb923c; }
+.resCat--red    { border-left: 3px solid #f87171; }
+.resCat--grey   { border-left: 3px solid #6b7280; }
+
+/* ── Resource grid ── */
+.resourceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0;
+}
+
+/* ── Resource card ── */
+.resourceCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  text-decoration: none;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  transition: background .12s;
+}
+
+.resourceCard:last-child,
+.resourceGrid > .resourceCard:nth-last-child(-n+2):first-child ~ .resourceCard {
+  border-bottom: none;
+}
+
+.resourceCard:hover {
+  background: rgba(79,124,255,.08);
+}
+
+.resourceCard__icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.resourceCard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.resourceCard__title {
+  font-size: .875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.resourceCard__desc {
+  font-size: .78rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.resourceCard__arrow {
+  color: var(--muted);
+  font-size: .8rem;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: color .12s, transform .12s;
+}
+
+.resourceCard:hover .resourceCard__arrow {
+  color: var(--accent);
+  transform: translate(1px, -1px);
+}
+
+/* ── Footer ── */
+.resourcesPage__footer {
+  margin: 0;
+  font-size: .78rem;
+  text-align: center;
+}
+
+/* ── Spinner (reuse or define here if not already in App.css) ── */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .resourceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .resourcesPage__header {
+    flex-direction: column;
+  }
+}
