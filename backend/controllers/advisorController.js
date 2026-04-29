@@ -2,7 +2,7 @@ const {
     Student, Advisor, Plan, PlannedCourse, Course, Program, PlanFeedback
 } = require('../models');
 
-// ---------- helpers (mirror the ones in studentController) ----------
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function buildTermLabel(plannedCourses) {
     if (!Array.isArray(plannedCourses) || plannedCourses.length === 0) return "";
@@ -110,7 +110,7 @@ function aggregateStudentAlerts(planRows) {
     return studentAlerts;
 }
 
-// ---------- controllers ----------
+// ─── controllers ──────────────────────────────────────────────────────────────
 
 exports.getCurrentAdvisor = async (req, res) => {
     try {
@@ -154,7 +154,6 @@ exports.getMyStudents = async (req, res) => {
             ]
         });
 
-        
         const majorSet = new Set(students.map(s => s.major).filter(Boolean));
         const programByMajor = {};
         for (const major of majorSet) {
@@ -199,7 +198,6 @@ exports.getMyStudents = async (req, res) => {
             };
         });
 
-        
         const REVIEWABLE = new Set(["Pending", "Needs Revision"]);
         const submissions = [];
         for (const s of shapedStudents) {
@@ -231,19 +229,19 @@ exports.reviewPlan = async (req, res) => {
         const { plan_id } = req.params;
         const { status, message } = req.body;
 
-        const plan = await Plan.findByPk(plan_id);
-        if (!plan) return res.status(404).json({ error: 'Plan not found' });
-
-        
         const ALLOWED = new Set(['Draft', 'Pending', 'Approved', 'Needs Revision', 'Historical']);
         if (status && !ALLOWED.has(status)) {
             return res.status(400).json({ error: `Invalid status: ${status}` });
         }
 
+        const plan = await Plan.findByPk(plan_id);
+        if (!plan) {
+            return res.status(404).json({ error: 'Plan not found.' });
+        }
+
         if (status) plan.status = status;
         await plan.save();
 
-        
         let feedbackRow = null;
         const trimmed = (message || "").trim();
         if (trimmed) {

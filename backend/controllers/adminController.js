@@ -76,13 +76,35 @@ exports.createUserProfile = async (req, res) => {
 
         //Check the role and create the matching profile!
         if (role === 'Student') {
+            const studentMajor = major || 'Undeclared';
+
+            //Look for an advisor in the matching department
+            const matchedAdvisor = await Advisor.findOne({
+                where: { department: studentMajor },
+                transaction: t
+            });
+
+            //If no specific advisor exists, find a General Advisor
+            let assignedAdvisorId = matchedAdvisor ? matchedAdvisor.advisor_id : null;
+            
+            if (!assignedAdvisorId) {
+                const defaultAdvisor = await Advisor.findOne({
+                    where: { department: 'General Advising' },
+                    transaction: t
+                });
+                // it stays null 
+                assignedAdvisorId = defaultAdvisor ? defaultAdvisor.advisor_id : null; 
+            }
+
+            //Create the Student and link the Advisor
             await Student.create({
-                student_id: newUser.get('user_id') || newUser.id || newUser.user_id, // Sequelize quirk: sometimes it's .get('field') and sometimes .field
+                student_id: newUser.get('user_id') || newUser.id || newUser.user_id,
                 first_name,
                 last_name,
-                major: major || 'Undeclared', 
+                major: studentMajor,
                 year: year || 1,
-                gpa: gpa || 0.0 // Default to 0.0 if not provided
+                GPA: gpa || '0.0',
+                advisor_id: assignedAdvisorId //The automatic link
             }, { transaction: t });
             
         } else if (role === 'Advisor') {
