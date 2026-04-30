@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import { generateSemester, deletePlan } from "@api/students.js";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
 function getInitials(name = "") {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -9,17 +14,15 @@ function getInitials(name = "") {
 
 function formatCredits(value) {
   const n = Number(value ?? 0);
-  return `${n} credit hour${n === 1 ? "" : "s"}`;
+  return `${n} credit${n === 1 ? "" : "s"}`;
 }
 
 function normalizeStatus(status) {
-  const s = String(status || "").trim();
-  return s || "Planned";
+  return String(status || "").trim() || "Planned";
 }
 
 function getCourseStatusClass(status) {
   const s = normalizeStatus(status).toLowerCase();
-
   if (s.includes("completed")) return "gpStatus gpStatus--completed";
   if (s.includes("enrolled")) return "gpStatus gpStatus--enrolled";
   if (s.includes("in progress")) return "gpStatus gpStatus--progress";
@@ -28,17 +31,71 @@ function getCourseStatusClass(status) {
 }
 
 function sumPlanCredits(plan) {
+  if (typeof plan?.credits === "number") return plan.credits;
   if (typeof plan?.plannedCredits === "number") return plan.plannedCredits;
   if (!Array.isArray(plan?.courses)) return 0;
-  return plan.courses.reduce(
-    (sum, course) => sum + Number(course?.credits ?? 0),
-    0
+  return plan.courses.reduce((sum, c) => sum + Number(c?.credits ?? 0), 0);
+}
+
+function canEditPlan(plan) {
+  const s = normalizeStatus(plan?.status || plan?.advisorStatus).toLowerCase();
+  return (
+    s !== "approved" &&
+    s !== "historical" &&
+    s !== "submitted" &&
+    s !== "pending"
   );
 }
 
+/** Visible courses — filter out ghost rows that have no code */
+function getVisibleCourses(plan) {
+  const courses = Array.isArray(plan?.courses) ? plan.courses : [];
+  return courses.filter((c) => c.code && c.code.trim());
+}
+
+/** Display label for a plan — use term if present, otherwise fall back */
+function getPlanLabel(plan) {
+  if (plan?.term && plan.term.trim()) return plan.term;
+  if (plan?.id) return `Plan #${plan.id}`;
+  return "Untitled Plan";
+}
+
+/**
+ * Compute the next N semester labels starting from today.
+ */
+function getUpcomingSemesters(count = 4) {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+
+  let startSem, startYear;
+  if (month < 7) {
+    startSem = "Fall";
+    startYear = year;
+  } else {
+    startSem = "Spring";
+    startYear = year + 1;
+  }
+
+  const results = [];
+  let sem = startSem;
+  let y = startYear;
+  for (let i = 0; i < count; i++) {
+    results.push(`${sem} ${y}`);
+    if (sem === "Fall") {
+      sem = "Spring";
+      y += 1;
+    } else {
+      sem = "Fall";
+    }
+  }
+  return results;
+}
+
+/* ─── Sub-components ───────────────────────────────────────────────────────── */
+
 function RequirementSection({ title, items, emptyText }) {
   const list = Array.isArray(items) ? items : [];
-
   return (
     <div className="reqSection">
       <div className="reqSection__title">{title}</div>
@@ -57,161 +114,117 @@ function RequirementSection({ title, items, emptyText }) {
   );
 }
 
-function CourseRow({ course }) {
-  return (
-    <div className="gpCourseCard">
-      <div className="gpCourseCard__left">
-        <div className="gpCourseCard__code">{course?.code || "TBD 000"}</div>
-        <div className="gpCourseCard__name">
-          {course?.title || "Untitled Course"}
-        </div>
-        <div className="muted gpCourseCard__credits">
-          {Number(course?.credits ?? 0)} Credits
-        </div>
-      </div>
-
-      <div className="gpCourseCard__right">
-        <span className={getCourseStatusClass(course?.status)}>
-          {normalizeStatus(course?.status)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function FullPlanCard({ plan, highlight }) {
+function SavedPlanCard({
+  plan,
+  isSelected,
+  onSelect,
+  onDelete,
+  onEdit,
+  onExportPdf,
+}) {
+  const visibleCourses = getVisibleCourses(plan);
   const credits = sumPlanCredits(plan);
-  const courses = Array.isArray(plan?.courses) ? plan.courses : [];
+  const editable = canEditPlan(plan);
+  const status = normalizeStatus(plan?.status || plan?.advisorStatus);
+  const label = getPlanLabel(plan);
 
   return (
-    <section className={`gpPlanCard ${highlight ? "gpPlanCard--highlight" : ""}`}>
-      <div className="gpPlanCard__header">
-        <div>
-          <h3 className="gpPlanCard__title">{plan?.term || "Upcoming Semester"}</h3>
-          <div className="muted gpPlanCard__subtitle">{formatCredits(credits)}</div>
-        </div>
-      </div>
-
-      <div className="gpPlanCard__body">
-        {courses.length > 0 ? (
-          courses.map((course, i) => (
-            <CourseRow key={`${plan?.id ?? plan?.term}-${i}`} course={course} />
-          ))
-        ) : (
-          <p className="muted">No courses in this GradPlan yet.</p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function MiniPlanCard({ plan }) {
-  const credits = sumPlanCredits(plan);
-  const courses = Array.isArray(plan?.courses) ? plan.courses : [];
-
-  return (
-    <section className="gpMiniPlanCard">
-      <div className="gpMiniPlanCard__top">
-        <div className="gpMiniPlanCard__term">{plan?.term || "Upcoming Semester"}</div>
-        <div className="muted gpMiniPlanCard__credits">{formatCredits(credits)}</div>
-      </div>
-
-      <div className="gpMiniPlanCard__list">
-        {courses.length > 0 ? (
-          courses.map((course, i) => (
-            <div
-              key={`${plan?.id ?? plan?.term}-mini-${i}`}
-              className="gpMiniPlanCard__item"
-            >
-              <div>
-                <div className="gpMiniPlanCard__code">{course?.code || "TBD 000"}</div>
-                <div className="muted gpMiniPlanCard__name">
-                  {course?.title || "Untitled Course"}
-                </div>
-              </div>
-              <span className={getCourseStatusClass(course?.status)}>
-                {normalizeStatus(course?.status)}
-              </span>
-            </div>
-          ))
-        ) : (
-          <p className="muted">No courses yet.</p>
-        )}
-      </div>
-    </section>
-  );
-}
-
-// Card used in the "Current Grad Plans" section. Displays summary
-// of a saved grad plan with action buttons.
-function SavedPlanCard({ plan, onEditPlan, onSubmitPlan, onClearPlan }) {
-  const credits = sumPlanCredits(plan);
-  const courses = Array.isArray(plan?.courses) ? plan.courses : [];
-  const id = plan?.id ?? plan?.term;
-  return (
-    <section className="gpSavedPlanCard">
+    <section
+      className={`gpSavedPlanCard ${isSelected ? "gpSavedPlanCard--selected" : ""}`}
+      onClick={() => onSelect?.(plan.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelect?.(plan.id);
+      }}
+    >
       <div className="gpSavedPlanCard__header">
-        <h4 className="gpSavedPlanCard__term">{plan?.term || "Semester"}</h4>
-        <div className="muted gpSavedPlanCard__credits">{formatCredits(credits)}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onSelect?.(plan.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`Select ${label}`}
+          />
+          <h4 className="gpSavedPlanCard__term">{label}</h4>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span
+            className={`statusBadge ${status.toLowerCase().replace(/\s+/g, "-")}`}
+          >
+            {status}
+          </span>
+          <span className="muted">{formatCredits(credits)}</span>
+        </div>
       </div>
+
       <div className="gpSavedPlanCard__body">
-        {courses.length > 0 ? (
-          <ul className="gpSavedPlanCard__courses" style={{ listStyle: 'none', padding: 0 }}>
-            {courses.map((course, i) => (
-              <li key={`${id}-course-${i}`} style={{ marginBottom: 4 }}>
-                <strong>{course.code}</strong> – {course.credits} credits – {normalizeStatus(course.status)}
-              </li>
+        {visibleCourses.length > 0 ? (
+          <div className="gpSavedPlanCard__courseList">
+            {visibleCourses.map((course, i) => (
+              <div
+                key={`${plan.id}-c-${i}`}
+                className="gpSavedPlanCard__courseRow"
+              >
+                <span className="gpSavedPlanCard__courseCode">
+                  {course.code}
+                </span>
+                <span className="muted gpSavedPlanCard__courseTitle">
+                  {course.title}
+                </span>
+                <span className="muted">{course.credits} cr</span>
+                <span className={getCourseStatusClass(course.status)}>
+                  {normalizeStatus(course.status)}
+                </span>
+              </div>
             ))}
-          </ul>
+          </div>
         ) : (
           <p className="muted">No courses in this plan.</p>
         )}
       </div>
-      <div className="gpSavedPlanCard__actions" style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+
+      <div
+        className="gpSavedPlanCard__actions"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {editable && (
+          <>
+            <button
+              className="btn gpBtn--small"
+              onClick={() => onEdit?.(plan.id)}
+            >
+              Edit
+            </button>
+            <button
+              className="btn gpBtn--small gpBtn--small"
+              onClick={() => onDelete?.(plan.id)}
+            >
+              Delete
+            </button>
+          </>
+        )}
         <button
-          type="button"
-          onClick={() => onSubmitPlan?.(plan?.id ?? plan?.term)}
+          className="btn gpBtn--small"
+          onClick={() => onExportPdf?.(plan)}
         >
-          Submit to advisor
-        </button>
-        <button
-          type="button"
-          onClick={() => onEditPlan?.(plan?.id ?? plan?.term)}
-        >
-          Edit Plan
-        </button>
-        <button
-          type="button"
-          onClick={() => onClearPlan?.(plan?.id ?? plan?.term)}
-        >
-          Clear Plan
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            // Export logic placeholder – could implement PDF export in future
-            console.log('Exporting plan', plan);
-          }}
-        >
-          Export Plan
+          Export PDF
         </button>
       </div>
     </section>
   );
 }
 
+/* ─── Main Page ────────────────────────────────────────────────────────────── */
+
 export default function GradPlansPage({
   student,
-  degreeProgram,
-  editingPlanId,
-  onUpdateGradPlans,
+  token,
   onEditPlan,
-  onSubmitPlan,
-  onClearPlan,
+  onPlansChanged,
 }) {
-  const major =
-    student?.major || student?.program || student?.degreePlan || "Undeclared";
-
+  const major = student?.major || "Undeclared";
   const gpa =
     typeof student?.gpa === "number"
       ? student.gpa.toFixed(2)
@@ -219,269 +232,261 @@ export default function GradPlansPage({
       ? String(student.gpa)
       : "N/A";
 
-  const [gradPlansState, setGradPlansState] = useState(() => {
-    const rows = Array.isArray(student?.gradPlans)
-      ? student.gradPlans
-      : Array.isArray(student?.plan)
-      ? student.plan
-      : [];
-    return [...rows];
-  });
+  const plans = useMemo(() => {
+    return Array.isArray(student?.plan) ? student.plan : [];
+  }, [student?.plan]);
 
-  // Sync local gradPlans state when student prop updates
-  // This ensures that actions taken elsewhere (e.g., clearing or submitting a plan)
-  // are reflected on this page.
-  useEffect(() => {
-    const rows = Array.isArray(student?.gradPlans)
-      ? student.gradPlans
-      : Array.isArray(student?.plan)
-      ? student.plan
-      : [];
-    setGradPlansState([...rows]);
-  }, [student?.gradPlans, student?.plan]);
+  // ── Generate state ──
+  const upcomingSemesters = useMemo(() => getUpcomingSemesters(4), []);
+  const [selectedSemesters, setSelectedSemesters] = useState([]);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState("");
 
-  const currentPlan = gradPlansState[0] || null;
-  const nextPlan = gradPlansState[1] || null;
-  const remainingPlans = gradPlansState.slice(2);
+  // ── Saved plan selection ──
+  const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
-  const suggestions = Array.isArray(student?.courseSuggestions)
-    ? student.courseSuggestions
-    : [];
-
-  const sampleGeneratedPlan = Array.isArray(degreeProgram?.sampleGeneratedPlan)
-    ? degreeProgram.sampleGeneratedPlan
-    : [];
-
-  const [selectedGenerateIds, setSelectedGenerateIds] = useState([]);
-  const [generatedPlans, setGeneratedPlans] = useState([]);
-
-  function toggleGenerateSelection(planId) {
-    setSelectedGenerateIds((prev) => {
-      const idx = prev.indexOf(planId);
-      if (idx === -1) return [...prev, planId];
-      return prev.filter((id) => id !== planId);
-    });
-  }
-
-  function generateSelectedPlans() {
-    const selected = sampleGeneratedPlan.filter((p) =>
-      selectedGenerateIds.includes(p.id)
+  // Filter out semesters that already have a plan with that term
+  // Only filter on non-empty terms so leftover empty plans don't block anything
+  const availableSemesters = useMemo(() => {
+    const existingTerms = new Set(
+      plans
+        .map((p) => (p.term || "").trim())
+        .filter(Boolean)
     );
+    return upcomingSemesters.filter((s) => !existingTerms.has(s));
+  }, [upcomingSemesters, plans]);
 
-    const newPlans = selected.map((p) => {
-      const courses = Array.isArray(p.courses)
-        ? p.courses.map((c) => {
-            if (typeof c === "string") {
-              const sug = suggestions.find((s) => s.code === c) || {};
-              return {
-                code: c,
-                title: sug.title || c,
-                credits: sug.credits || 0,
-                status: "Planned",
-              };
-            }
-
-            return {
-              code: c?.code || c,
-              title: c?.title || c?.code || "",
-              credits: c?.credits || 0,
-              status: "Planned",
-            };
-          })
-        : [];
-
-      return {
-        id: p.id,
-        term: p.term,
-        plannedCredits: p.plannedCredits,
-        courses,
-      };
+  function toggleSemester(sem) {
+    setSelectedSemesters((prev) => {
+      if (prev.includes(sem)) return prev.filter((s) => s !== sem);
+      if (prev.length >= 4) return prev;
+      return [...prev, sem];
     });
-
-    setGeneratedPlans(newPlans);
   }
 
-  function saveGeneratedPlans(overwrite = false) {
-    // Compute the updated plans array outside of setState so we can
-    // synchronously persist changes via onUpdateGradPlans.
-    const updated = (() => {
-      const plans = [...gradPlansState];
-      generatedPlans.forEach((newPlan) => {
-        const existingIndex = plans.findIndex(
-          (p) => p.term === newPlan.term || p.id === newPlan.id
-        );
-        if (existingIndex !== -1) {
-          if (overwrite) {
-            plans[existingIndex] = { ...plans[existingIndex], ...newPlan };
-          }
-        } else {
-          plans.push(newPlan);
-        }
-      });
-      return plans;
-    })();
+  function togglePlanSelection(planId) {
+    setSelectedPlanIds((prev) =>
+      prev.includes(planId)
+        ? prev.filter((id) => id !== planId)
+        : [...prev, planId]
+    );
+  }
 
-    setGradPlansState(updated);
-    if (typeof onUpdateGradPlans === "function") {
-      onUpdateGradPlans(updated);
+  async function handleGenerate() {
+    if (selectedSemesters.length === 0) return;
+    setGenerating(true);
+    setGenerateError("");
+
+    try {
+      await generateSemester(token, { semesters: selectedSemesters });
+      setSelectedSemesters([]);
+      if (typeof onPlansChanged === "function") await onPlansChanged();
+    } catch (err) {
+      setGenerateError(err.message || "Failed to generate plans.");
+    } finally {
+      setGenerating(false);
     }
-    // Clear generated state after saving
-    setGeneratedPlans([]);
-    setSelectedGenerateIds([]);
   }
 
+  async function handleDeletePlan(planId) {
+    if (!window.confirm("Are you sure you want to delete this plan?")) return;
+    try {
+      await deletePlan(token, planId);
+      if (typeof onPlansChanged === "function") await onPlansChanged();
+    } catch (err) {
+      alert(err.message || "Failed to delete plan.");
+    }
+  }
+
+  function handleEditPlan(planId) {
+    if (typeof onEditPlan === "function") onEditPlan(planId);
+  }
+
+  function handleExportPdf(plan) {
+    const doc = new jsPDF();
+    const visibleCourses = getVisibleCourses(plan);
+    const credits = sumPlanCredits(plan);
+    const status = normalizeStatus(plan.status);
+    const label = getPlanLabel(plan);
+
+    doc.setFontSize(18);
+    doc.text("GradMap — Graduation Plan", 14, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Student: ${student?.name || "Student"}`, 14, 32);
+    doc.text(`Major: ${major}`, 14, 40);
+    doc.text(`Semester: ${label}`, 14, 48);
+    doc.text(`Status: ${status}`, 14, 56);
+    doc.text(`Total Credits: ${credits}`, 14, 64);
+
+    if (visibleCourses.length > 0) {
+      autoTable(doc, {
+        startY: 74,
+        head: [["Course Code", "Title", "Credits", "Status"]],
+        body: visibleCourses.map((c) => [
+          c.code || "",
+          c.title || "",
+          String(c.credits || 0),
+          normalizeStatus(c.status),
+        ]),
+        theme: "grid",
+        headStyles: { fillColor: [79, 124, 255] },
+      });
+    } else {
+      doc.text("No courses in this plan.", 14, 74);
+    }
+
+    const filename = `GradPlan_${label.replace(/[^a-zA-Z0-9]+/g, "_")}.pdf`;
+    doc.save(filename);
+  }
+
+  // Split plans into editable vs locked
+  const editablePlans = plans.filter((p) => canEditPlan(p));
+  const lockedPlans = plans.filter((p) => !canEditPlan(p));
 
   const degree = student?.degreeRequirements || {};
   const advisorNote = student?.advisorNotes || null;
+
+  const generateBtnLabel =
+    selectedSemesters.length === 0
+      ? "Select semesters above"
+      : generating
+      ? "Generating…"
+      : `Generate ${selectedSemesters.length} Plan${selectedSemesters.length !== 1 ? "s" : ""}`;
 
   return (
     <section className="card">
       <h2>GradPlans</h2>
 
       <div className="gradPlansLayout">
+        {/* ── Left Column: Generate ── */}
         <aside className="gradPlansLeftCol">
           <div className="panel stickyPanel">
-            <h3>Course Suggestions</h3>
-            {suggestions.length > 0 ? (
-              <div className="gpSuggestionList">
-                {suggestions.map((course, i) => (
-                  <div key={`suggestion-${i}`} className="gpSuggestionCard">
-                    <div className="gpSuggestionCard__code">
-                      {course?.code || "TBD 000"}
-                    </div>
-                    <div className="gpSuggestionCard__title">
-                      {course?.title || "Untitled Course"}
-                    </div>
-                    <div className="muted gpSuggestionCard__meta">
-                      {Number(course?.credits ?? 0)} Credits
-                      {course?.reason ? ` • ${course.reason}` : ""}
-                    </div>
-                  </div>
+            <h3>Generate Plans</h3>
+            <p className="muted" style={{ marginTop: 0, fontSize: ".9rem" }}>
+              Select up to 4 upcoming semesters to auto-generate a course plan
+              based on your <b>{major}</b> degree requirements. Courses are
+              selected by lowest course number first, targeting 12–15 credits
+              per semester.
+            </p>
+
+            {availableSemesters.length > 0 ? (
+              <div className="gpSemesterCheckboxes">
+                {availableSemesters.map((sem) => (
+                  <label key={sem} className="gpSemesterCheckbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedSemesters.includes(sem)}
+                      onChange={() => toggleSemester(sem)}
+                    />
+                    <span>{sem}</span>
+                  </label>
                 ))}
               </div>
             ) : (
-              <p className="muted">No course suggestions available yet.</p>
+              <p className="muted">
+                All upcoming semesters already have plans.
+              </p>
             )}
+
+            {generateError && (
+              <div className="error" style={{ marginTop: 8, fontSize: ".9rem" }}>
+                {generateError}
+              </div>
+            )}
+
+            <button
+              className="btn primary"
+              style={{ marginTop: 12, width: "100%" }}
+              disabled={selectedSemesters.length === 0 || generating}
+              onClick={handleGenerate}
+            >
+              {generateBtnLabel}
+            </button>
           </div>
         </aside>
 
+        {/* ── Center Column: Saved Plans ── */}
         <main className="gradPlansCenterCol">
           <div className="panel gpProfileCard">
             <div className="gpProfileCard__avatar" aria-hidden="true">
               {getInitials(student?.name)}
             </div>
-            <div className="gpProfileCard__name">{student?.name || "Student Name"}</div>
+            <div className="gpProfileCard__name">
+              {student?.name || "Student Name"}
+            </div>
             <div className="muted gpProfileCard__meta">
               {major} • GPA: <b>{gpa}</b>
             </div>
           </div>
 
+          {/* Editable Plans */}
           <div className="panel" style={{ marginBottom: 12 }}>
-            <h3>Generate New GradPlans</h3>
-            {sampleGeneratedPlan.length > 0 ? (
-              <div>
-                <p>Select which semesters to generate:</p>
-                <div className="gpGenerateList">
-                  {sampleGeneratedPlan.map((plan, i) => (
-                    <div key={`gen-opt-${plan.id || i}`} className="gpGenerateOption">
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={selectedGenerateIds.includes(plan.id)}
-                          onChange={() => toggleGenerateSelection(plan.id)}
-                        />
-                        {plan.term} ({plan.plannedCredits} credits)
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={generateSelectedPlans}
-                  disabled={selectedGenerateIds.length === 0}
-                  style={{ marginTop: 8 }}
-                >
-                  Generate Selected
-                </button>
+            <h3>
+              Current Plans{" "}
+              <span className="muted" style={{ fontWeight: 400, fontSize: ".9rem" }}>
+                ({editablePlans.length})
+              </span>
+            </h3>
 
-                {generatedPlans.length > 0 && (
-                  <div className="gpGeneratedPreview" style={{ marginTop: 12 }}>
-                    <h4>Generated Plan Preview</h4>
-                    <div className="gpMiniPlansGrid">
-                      {generatedPlans.map((gp, gi) => (
-                        <MiniPlanCard
-                          key={`preview-${gp.id || gp.term}-${gi}`}
-                          plan={gp}
-                        />
-                      ))}
-                    </div>
-                    <div className="gpGenerateActions" style={{ marginTop: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => saveGeneratedPlans(true)}
-                        style={{ marginRight: 6 }}
-                      >
-                        Overwrite Existing
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => saveGeneratedPlans(false)}
-                      >
-                        Save and Append
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="muted">No sample plans available for this degree.</p>
-            )}
-          </div>
-
-          {/* Current saved grad plans list */}
-          <div className="panel" style={{ marginBottom: 12 }}>
-            <h3>Current Grad Plans</h3>
-            {gradPlansState.length > 0 ? (
+            {editablePlans.length > 0 ? (
               <div className="gpSavedPlans">
-                {gradPlansState.map((plan, i) => (
+                {editablePlans.map((plan) => (
                   <SavedPlanCard
-                    key={`saved-${plan.id || plan.term}-${i}`}
+                    key={plan.id}
                     plan={plan}
-                    onEditPlan={onEditPlan}
-                    onSubmitPlan={onSubmitPlan}
-                    onClearPlan={onClearPlan}
+                    isSelected={selectedPlanIds.includes(plan.id)}
+                    onSelect={togglePlanSelection}
+                    onDelete={handleDeletePlan}
+                    onEdit={handleEditPlan}
+                    onExportPdf={handleExportPdf}
                   />
                 ))}
               </div>
             ) : (
-              <p className="muted">No saved Grad Plans.</p>
+              <p className="muted">
+                No editable plans. Generate new ones using the panel on the
+                left.
+              </p>
             )}
           </div>
 
-          {currentPlan && <FullPlanCard plan={currentPlan} highlight />}
-          {nextPlan && <FullPlanCard plan={nextPlan} />}
-
-          {remainingPlans.length > 0 && (
-            <div className="gpMiniPlansWrap">
-              <h3>Future GradPlans</h3>
-              <div className="gpMiniPlansGrid">
-                {remainingPlans.map((plan, i) => (
-                  <MiniPlanCard
-                    key={`${plan?.id ?? plan?.term ?? "plan"}-${i}`}
+          {/* Locked / Historical Plans */}
+          {lockedPlans.length > 0 && (
+            <div className="panel">
+              <h3>
+                Approved &amp; Historical Plans{" "}
+                <span className="muted" style={{ fontWeight: 400, fontSize: ".9rem" }}>
+                  ({lockedPlans.length})
+                </span>
+              </h3>
+              <div className="gpSavedPlans">
+                {lockedPlans.map((plan) => (
+                  <SavedPlanCard
+                    key={plan.id}
                     plan={plan}
+                    isSelected={selectedPlanIds.includes(plan.id)}
+                    onSelect={togglePlanSelection}
+                    onDelete={handleDeletePlan}
+                    onEdit={handleEditPlan}
+                    onExportPdf={handleExportPdf}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {!currentPlan && !nextPlan && remainingPlans.length === 0 && (
+          {plans.length === 0 && (
             <div className="panel">
-              <p className="muted">No GradPlans found for this student.</p>
+              <p className="muted">
+                No GradPlans found. Use the generator on the left to create your
+                first plan.
+              </p>
             </div>
           )}
         </main>
 
+        {/* ── Right Column: Requirements + Advisor Notes ── */}
         <aside className="gradPlansRightCol">
           <div className="panel stickyPanel">
             <h3>Degree Requirements</h3>
@@ -489,37 +494,18 @@ export default function GradPlansPage({
             <RequirementSection
               title="General Education"
               items={degree?.generalEducation}
-              emptyText="No courses fulfilling this requirement yet."
             />
-
+            <RequirementSection title="Major Core" items={degree?.majorCore} />
+            <RequirementSection title="Electives" items={degree?.electives} />
             <RequirementSection
-              title="Major Core"
-              items={degree?.majorCore}
-              emptyText="No courses fulfilling this requirement yet."
-            />
-
-            <RequirementSection
-              title="Electives"
-              items={degree?.electives}
-              emptyText="No courses fulfilling this requirement yet."
-            />
-
-            <RequirementSection
-              title="Interdisciplinary Requirements"
+              title="Interdisciplinary"
               items={degree?.interdisciplinary}
-              emptyText="No courses fulfilling this requirement yet."
             />
-
-            <RequirementSection
-              title="Capstone Project"
-              items={degree?.capstone}
-              emptyText="No courses fulfilling this requirement yet."
-            />
+            <RequirementSection title="Capstone" items={degree?.capstone} />
           </div>
 
           <div className="panel" style={{ marginTop: 12 }}>
             <h3>Advisor Notes</h3>
-
             {advisorNote ? (
               <div className="advisorNoteCard">
                 <div className="advisorNoteCard__author">

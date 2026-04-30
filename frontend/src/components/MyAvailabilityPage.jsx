@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { getAvailability, saveAvailability } from "@api/students.js";
 
 const DAYS = [
   { id: "mon", label: "Mon" },
@@ -39,18 +40,8 @@ function uid() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function createDefaultAvailability() {
-  return {
-    term: "Fall 2026",
-    weeklyHours: {
-      mon: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
-      tue: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
-      wed: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
-      thu: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
-      fri: ["1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM", "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM"],
-    },
-    blocks: [],
-  };
+function createEmptyWeeklyHours() {
+  return { mon: [], tue: [], wed: [], thu: [], fri: [] };
 }
 
 function normalizeWeeklyHours(weeklyHours) {
@@ -71,28 +62,48 @@ function isHourWithinBlock(hour, block) {
   if (hourIdx === -1 || startIdx === -1 || endIdx === -1) return false;
 
   // inclusive start, exclusive end
-  // Example: 6:00 AM - 8:00 AM blocks 6:00 and 7:00, but not 8:00
   return hourIdx >= startIdx && hourIdx < endIdx;
 }
 
-export default function MyAvailabilityPage({ student }) {
-  const savedAvailability = student?.availability || createDefaultAvailability();
-
-  const [term, setTerm] = useState(savedAvailability.term || "Fall 2026");
+export default function MyAvailabilityPage({ student, token }) {
+  const [term, setTerm] = useState("Fall 2026");
   const [selectedDay, setSelectedDay] = useState("mon");
-  const [weeklyHours, setWeeklyHours] = useState(() =>
-    normalizeWeeklyHours(savedAvailability.weeklyHours || createDefaultAvailability().weeklyHours)
-  );
-
-  const [blocks, setBlocks] = useState(() =>
-    Array.isArray(savedAvailability.blocks) ? savedAvailability.blocks : []
-  );
+  const [weeklyHours, setWeeklyHours] = useState(createEmptyWeeklyHours);
+  const [blocks, setBlocks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [saveMsg, setSaveMsg] = useState(null);
 
   const [newTitle, setNewTitle] = useState("");
   const [newDay, setNewDay] = useState("mon");
   const [newStart, setNewStart] = useState("2:00 PM");
   const [newEnd, setNewEnd] = useState("3:00 PM");
   const [newRepeats, setNewRepeats] = useState("Weekly");
+
+  // ── Load availability from backend on mount ──────────────────────────────
+  useEffect(() => {
+    async function load() {
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getAvailability(token);
+        setWeeklyHours(normalizeWeeklyHours(data?.weeklyHours));
+      } catch (err) {
+        console.error("Failed to load availability:", err);
+        setError("Failed to load availability. Using defaults.");
+        setWeeklyHours(createEmptyWeeklyHours());
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [token]);
 
   const selectedDayHours = useMemo(() => {
     return new Set(weeklyHours[selectedDay] || []);
@@ -109,6 +120,8 @@ export default function MyAvailabilityPage({ student }) {
         [dayId]: HOUR_OPTIONS.filter((h) => current.has(h)),
       };
     });
+    // Clear any previous save message when user makes changes
+    setSaveMsg(null);
   }
 
   function setAllHoursForDay(dayId, enabled) {
@@ -116,20 +129,30 @@ export default function MyAvailabilityPage({ student }) {
       ...prev,
       [dayId]: enabled ? [...HOUR_OPTIONS] : [],
     }));
+    setSaveMsg(null);
   }
 
-  function handleSaveAvailability() {
-    const payload = {
-      studentName: student?.name ?? "Unknown Student",
-      availability: {
-        term,
-        weeklyHours,
-        blocks,
-      },
-    };
+  // ── Save availability to backend ─────────────────────────────────────────
+  async function handleSaveAvailability() {
+    if (!token) {
+      alert("You must be logged in to save availability.");
+      return;
+    }
 
-    console.log("[MyAvailability] Save availability (mock):", payload);
-    alert("Mock: Availability saved!");
+    try {
+      setSaving(true);
+      setSaveMsg(null);
+      setError(null);
+
+      await saveAvailability(token, { weeklyHours });
+
+      setSaveMsg("Availability saved successfully!");
+    } catch (err) {
+      console.error("Failed to save availability:", err);
+      setError(`Failed to save: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleAddBlock() {
@@ -200,6 +223,16 @@ export default function MyAvailabilityPage({ student }) {
     });
   }, [weeklyHours, blocks]);
 
+  // ── Loading state ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <section className="card">
+        <h2>My Availability</h2>
+        <p className="muted">Loading availability…</p>
+      </section>
+    );
+  }
+
   return (
     <section className="card">
       <h2>My Availability</h2>
@@ -211,6 +244,20 @@ export default function MyAvailabilityPage({ student }) {
       <p className="muted">
         Select a term, choose a day, and toggle the hours you are free for classes.
       </p>
+
+      {/* ── Error banner ── */}
+      {error && (
+        <div className="panel" style={{ borderLeft: "4px solid #e53e3e", marginBottom: 12 }}>
+          <p style={{ color: "#e53e3e", margin: 0 }}>⚠️ {error}</p>
+        </div>
+      )}
+
+      {/* ── Success banner ── */}
+      {saveMsg && (
+        <div className="panel" style={{ borderLeft: "4px solid #38a169", marginBottom: 12 }}>
+          <p style={{ color: "#38a169", margin: 0 }}>✓ {saveMsg}</p>
+        </div>
+      )}
 
       <div className="grid">
         <div className="panel">
@@ -287,8 +334,12 @@ export default function MyAvailabilityPage({ student }) {
           </div>
 
           <div className="actions" style={{ marginTop: 16 }}>
-            <button className="btn primary" onClick={handleSaveAvailability}>
-              Save Availability
+            <button
+              className="btn primary"
+              onClick={handleSaveAvailability}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save Availability"}
             </button>
           </div>
         </div>

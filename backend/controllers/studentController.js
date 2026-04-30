@@ -1,24 +1,10 @@
 const {
     Student, Program, Course, Plan, PlannedCourse,
-    SemesterOffering, TimeSlot, PlanFeedback, Advisor, StudentAvailability
+    SemesterOffering, TimeSlot, PlanFeedback, Advisor, StudentAvailability,
+    Prerequisite
 } = require('../models');
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-const isWithinAvailability = (courseSlot, studentAvailabilities) => {
-    if (!studentAvailabilities || studentAvailabilities.length === 0) return true;
-
-    const courseDays = courseSlot.days.split('');
-    const [cStart, cEnd] = courseSlot.time_range.split('-').map(t => t.trim());
-
-    return courseDays.every(day => {
-        return studentAvailabilities.some(avail => {
-            return avail.day === day &&
-                avail.start_time <= cStart &&
-                avail.end_time >= cEnd;
-        });
-    });
-};
 
 const hasTimeConflict = (slot1, slot2) => {
     const days1 = slot1.days.split('');
@@ -84,6 +70,40 @@ function computePlanAlerts(plan) {
     return alerts;
 }
 
+// ─── Day code mapping (DB uses single chars, frontend uses 3-letter IDs) ─────
+
+const DAY_CODE_TO_ID = { M: 'mon', T: 'tue', W: 'wed', R: 'thu', F: 'fri' };
+const DAY_ID_TO_CODE = { mon: 'M', tue: 'T', wed: 'W', thu: 'R', fri: 'F' };
+
+function to12Hour(time24) {
+    const [hStr, mStr] = time24.split(':');
+    let h = parseInt(hStr, 10);
+    const suffix = h >= 12 ? 'PM' : 'AM';
+    if (h === 0) h = 12;
+    else if (h > 12) h -= 12;
+    return `${h}:${mStr || '00'} ${suffix}`;
+}
+
+function to24Hour(time12) {
+    const match = time12.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return time12;
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const period = match[3].toUpperCase();
+    if (period === 'AM' && h === 12) h = 0;
+    else if (period === 'PM' && h !== 12) h += 12;
+    return `${String(h).padStart(2, '0')}:${m}`;
+}
+
+/**
+ * Extract the numeric part of a course code for sorting.
+ * e.g. "CS 150" → 150, "MATH 201" → 201
+ */
+function getCourseNumber(courseCode) {
+    const match = String(courseCode || '').match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 9999;
+}
+
 // ─── controllers ──────────────────────────────────────────────────────────────
 
 exports.getRequirements = async (req, res) => {
@@ -103,10 +123,33 @@ exports.getRequirements = async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
+/**
+ * POST /api/students/generate-semester
+ *
+ * Accepts: { semesters: ["Fall 2026", "Spring 2027", ...] }
+ *   — up to 4 semesters at a time.
+ *
+ * For each semester it:
+ *   1. Looks up the student's degree program requirements
+ *   2. Finds which required courses the student has NOT yet completed/planned
+ *   3. Sorts remaining courses by course number ascending (lower numbers first)
+ *   4. Picks courses until 12-15 credits are reached
+ *   5. Creates a Plan + PlannedCourses in the DB
+ *
+ * Availability is NOT taken into account (no current course time offerings).
+ */
 exports.generateSemester = async (req, res) => {
     try {
         const student = await Student.findByPk(req.user.user_id);
-        const targetSemester = req.body.semester || 'Fall';
+        const { semesters } = req.body;
+
+        if (!Array.isArray(semesters) || semesters.length === 0) {
+            return res.status(400).json({ error: 'Please provide an array of semesters.' });
+        }
+
+        if (semesters.length > 4) {
+            return res.status(400).json({ error: 'You can generate at most 4 semesters at a time.' });
+        }
 
         // Get the student's program requirements
         const program = await Program.findOne({
@@ -114,77 +157,118 @@ exports.generateSemester = async (req, res) => {
             include: [{ model: Course }]
         });
 
-        // Fetch the student's real-world availability
-        const studentAvailabilities = await StudentAvailability.findAll({
-            where: { student_id: student.student_id }
+        if (!program) {
+            return res.status(404).json({ error: 'Degree program not found for your major.' });
+        }
+
+        // Get all courses the student has already planned/enrolled/completed
+        const existingPlans = await Plan.findAll({
+            where: { student_id: student.student_id },
+            include: [{ model: PlannedCourse }]
         });
 
-        // Fetch available courses including their TimeSlots
-        const availableCourses = await SemesterOffering.findAll({
-            where: { semester: targetSemester },
-            include: [{
-                model: Course,
-                include: [{ model: TimeSlot }]
-            }]
-        });
-
-        const plan = await Plan.create({
-            student_id: student.student_id,
-            degree_program: student.major,
-            status: 'Draft',
-            creation_date: new Date()
-        });
-
-        let coursesAdded = 0;
-        let selectedCourses = [];
-
-        for (let offered of availableCourses) {
-            if (coursesAdded >= 4) break;
-
-            const course = offered.Course;
-            const isRequired = program.Courses.some(reqCourse => reqCourse.course_id === course.course_id);
-
-            if (isRequired) {
-                const courseSlots = course.Time_Slots || course.TimeSlots || [];
-
-                // Skip if course doesn't fit the student's availability
-                const fitsSchedule = courseSlots.every(slot => isWithinAvailability(slot, studentAvailabilities));
-                if (!fitsSchedule) continue;
-
-                // Skip if course conflicts with an already-selected course
-                let conflict = false;
-                for (const selected of selectedCourses) {
-                    const selectedSlots = selected.Course.Time_Slots || selected.Course.TimeSlots || [];
-                    for (const slot1 of courseSlots) {
-                        for (const slot2 of selectedSlots) {
-                            if (hasTimeConflict(slot1, slot2)) {
-                                conflict = true;
-                                break;
-                            }
-                        }
-                        if (conflict) break;
-                    }
-                    if (conflict) break;
-                }
-
-                if (conflict) continue;
-
-                await PlannedCourse.create({
-                    plan_id: plan.plan_id,
-                    course_id: course.course_id,
-                    semester: targetSemester,
-                    year: new Date().getFullYear()
-                });
-
-                selectedCourses.push(offered);
-                coursesAdded++;
+        const alreadyPlannedCourseIds = new Set();
+        for (const plan of existingPlans) {
+            const pcs = Array.isArray(plan.Planned_Courses) ? plan.Planned_Courses : [];
+            for (const pc of pcs) {
+                alreadyPlannedCourseIds.add(pc.course_id);
             }
         }
 
+        // All required courses for the program, sorted by course number ascending
+        let programCourses = (program.Courses || [])
+            .filter(c => !alreadyPlannedCourseIds.has(c.course_id))
+            .sort((a, b) => getCourseNumber(a.course_code) - getCourseNumber(b.course_code));
+
+        // Fallback: if no courses came from the program_courses join table,
+        // use ALL courses in the student's major/department instead.
+        if (programCourses.length === 0) {
+            const deptWhere = {};
+            if (student.major) deptWhere.department = student.major;
+
+            let fallbackCourses = await Course.findAll({ where: deptWhere });
+
+            // Second fallback: if no courses matched the department, use ALL courses
+            if (fallbackCourses.length === 0 && student.major) {
+                fallbackCourses = await Course.findAll();
+            }
+
+            programCourses = fallbackCourses
+                .filter(c => !alreadyPlannedCourseIds.has(c.course_id))
+                .sort((a, b) => getCourseNumber(a.course_code) - getCourseNumber(b.course_code));
+        }
+
+        // Track courses consumed across the generated semesters
+        const usedCourseIds = new Set();
+
+        const results = [];
+
+        for (const semesterLabel of semesters) {
+            // Parse "Fall 2026" → semester = "Fall", year = 2026
+            const parts = semesterLabel.trim().split(/\s+/);
+            const semesterName = parts[0] || 'Fall';
+            const year = parseInt(parts[1], 10) || new Date().getFullYear();
+
+            // Pick courses for this semester: 12-15 credits, lowest numbers first
+            const selectedCourses = [];
+            let totalCredits = 0;
+
+            for (const course of programCourses) {
+                if (usedCourseIds.has(course.course_id)) continue;
+                const credits = course.credits || 3;
+
+                // Don't exceed 15 credits
+                if (totalCredits + credits > 15) continue;
+
+                selectedCourses.push(course);
+                totalCredits += credits;
+                usedCourseIds.add(course.course_id);
+
+                // Stop if we've reached at least 12 credits
+                if (totalCredits >= 12) break;
+            }
+
+            // Create the plan
+            const plan = await Plan.create({
+                student_id: student.student_id,
+                degree_program: student.major,
+                status: 'Draft',
+                creation_date: new Date()
+            });
+
+            // Create planned courses
+            for (const course of selectedCourses) {
+                await PlannedCourse.create({
+                    plan_id: plan.plan_id,
+                    course_id: course.course_id,
+                    semester: semesterName,
+                    year: year,
+                    status: 'Planned'
+                });
+            }
+
+            // Build response for this semester
+            const courses = selectedCourses.map(c => ({
+                code: c.course_code,
+                title: c.course_name,
+                credits: c.credits,
+                status: 'Planned'
+            }));
+
+            results.push({
+                plan_id: plan.plan_id,
+                term: `${semesterName} ${year}`,
+                semester: semesterName,
+                year,
+                courses,
+                credits: totalCredits,
+                status: 'Draft'
+            });
+        }
+
         res.status(201).json({
-            message: `Semester generated! Successfully found ${coursesAdded} courses that fit the student's schedule.`,
-            plan_id: plan.plan_id,
-            coursesAdded
+            message: `Generated ${results.length} semester plan(s).`,
+            plans: results
         });
     } catch (error) {
         console.error("Generator Error:", error);
@@ -394,15 +478,198 @@ exports.deletePlan = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/students/plans/:plan_id/courses
+ *
+ * Replaces all courses in a plan with the provided list.
+ * Used by the "Edit Plan" flow on the Course Catalogue page.
+ *
+ * Body: { courses: [{ code: "CS 150", ... }, ...] }
+ *
+ * Only Draft and "Needs Revision" plans can be edited.
+ */
+exports.updatePlanCourses = async (req, res) => {
+    try {
+        const { plan_id } = req.params;
+        const { courses } = req.body;
+
+        const plan = await Plan.findOne({
+            where: { plan_id, student_id: req.user.user_id },
+        });
+
+        if (!plan) {
+            return res.status(404).json({ error: 'Plan not found.' });
+        }
+
+        if (plan.status === 'Approved' || plan.status === 'Historical') {
+            return res.status(403).json({
+                error: 'Cannot edit plans that are approved or historical.',
+            });
+        }
+
+        if (!Array.isArray(courses)) {
+            return res.status(400).json({ error: 'courses must be an array.' });
+        }
+
+        // Remove existing planned courses
+        await PlannedCourse.destroy({ where: { plan_id } });
+
+        // Look up each course by code and re-create planned courses
+        for (const c of courses) {
+            const dbCourse = await Course.findOne({ where: { course_code: c.code } });
+            if (!dbCourse) continue;
+
+            await PlannedCourse.create({
+                plan_id: plan.plan_id,
+                course_id: dbCourse.course_id,
+                semester: c.semester || plan.degree_program ? 'Fall' : 'Fall',
+                year: c.year || new Date().getFullYear(),
+                status: c.status || 'Planned'
+            });
+        }
+
+        // Reload the plan with updated courses
+        const updatedPlan = await Plan.findByPk(plan_id, {
+            include: [{ model: PlannedCourse, include: [Course] }]
+        });
+
+        const plannedCourses = Array.isArray(updatedPlan.Planned_Courses) ? updatedPlan.Planned_Courses : [];
+        const mappedCourses = plannedCourses.map(pc => ({
+            code: pc.Course?.course_code || "",
+            title: pc.Course?.course_name || "",
+            credits: pc.Course?.credits || 0,
+            status: pc.status || "Planned",
+        }));
+
+        const credits = mappedCourses.reduce((sum, c) => sum + (c.credits || 0), 0);
+
+        res.json({
+            message: 'Plan updated.',
+            plan_id: updatedPlan.plan_id,
+            term: buildTermLabel(plannedCourses),
+            status: updatedPlan.status,
+            courses: mappedCourses,
+            credits
+        });
+    } catch (error) {
+        console.error('updatePlanCourses error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// ─── Availability endpoints ──────────────────────────────────────────────────
+
+exports.getAvailability = async (req, res) => {
+    try {
+        const studentId = req.user.user_id;
+
+        const rows = await StudentAvailability.findAll({
+            where: { student_id: studentId },
+            order: [['day', 'ASC'], ['start_time', 'ASC']],
+        });
+
+        const weeklyHours = { mon: [], tue: [], wed: [], thu: [], fri: [] };
+
+        const HOUR_SLOTS = [
+            '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+            '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+            '18:00', '19:00', '20:00', '21:00',
+        ];
+
+        for (const row of rows) {
+            const dayId = DAY_CODE_TO_ID[row.day];
+            if (!dayId) continue;
+
+            for (const slot of HOUR_SLOTS) {
+                if (slot >= row.start_time && slot < row.end_time) {
+                    const display = to12Hour(slot);
+                    if (!weeklyHours[dayId].includes(display)) {
+                        weeklyHours[dayId].push(display);
+                    }
+                }
+            }
+        }
+
+        res.json({ weeklyHours });
+    } catch (error) {
+        console.error('getAvailability error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+exports.saveAvailability = async (req, res) => {
+    try {
+        const studentId = req.user.user_id;
+        const { weeklyHours } = req.body;
+
+        if (!weeklyHours || typeof weeklyHours !== 'object') {
+            return res.status(400).json({ error: 'weeklyHours is required.' });
+        }
+
+        await StudentAvailability.destroy({ where: { student_id: studentId } });
+
+        const records = [];
+
+        for (const [dayId, hours] of Object.entries(weeklyHours)) {
+            const dayCode = DAY_ID_TO_CODE[dayId];
+            if (!dayCode || !Array.isArray(hours) || hours.length === 0) continue;
+
+            const sorted24 = hours
+                .map(h => to24Hour(h))
+                .sort();
+
+            let blockStart = sorted24[0];
+            let blockEnd = sorted24[0];
+
+            for (let i = 1; i < sorted24.length; i++) {
+                const prevHour = parseInt(blockEnd.split(':')[0], 10);
+                const currHour = parseInt(sorted24[i].split(':')[0], 10);
+
+                if (currHour === prevHour + 1) {
+                    blockEnd = sorted24[i];
+                } else {
+                    const endHour = parseInt(blockEnd.split(':')[0], 10) + 1;
+                    records.push({
+                        student_id: studentId,
+                        day: dayCode,
+                        start_time: blockStart,
+                        end_time: `${String(endHour).padStart(2, '0')}:00`,
+                    });
+                    blockStart = sorted24[i];
+                    blockEnd = sorted24[i];
+                }
+            }
+
+            const endHour = parseInt(blockEnd.split(':')[0], 10) + 1;
+            records.push({
+                student_id: studentId,
+                day: dayCode,
+                start_time: blockStart,
+                end_time: `${String(endHour).padStart(2, '0')}:00`,
+            });
+        }
+
+        if (records.length > 0) {
+            await StudentAvailability.bulkCreate(records);
+        }
+
+        res.json({ message: 'Availability saved successfully.' });
+    } catch (error) {
+        console.error('saveAvailability error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
 exports.addAvailability = async (req, res) => {
     try {
         const { studentId, availabilities } = req.body;
 
-        // Clear old availability before saving new ones
-        await StudentAvailability.destroy({ where: { student_id: studentId } });
+        const sid = studentId || req.user.user_id;
+
+        await StudentAvailability.destroy({ where: { student_id: sid } });
 
         const availabilityRecords = availabilities.map(avail => ({
-            student_id: studentId,
+            student_id: sid,
             day: avail.day,
             start_time: avail.start_time,
             end_time: avail.end_time

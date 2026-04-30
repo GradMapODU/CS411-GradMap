@@ -27,3 +27,23 @@ export function deletePlan(token, planId) {
     token,
   });
 }
+
+export function updatePlanCourses(token, planId, courses) {
+  return apiRequest(`/api/students/plans/${planId}/courses`, {
+    method: "PUT",
+    body: { courses },
+    token,
+  });
+}
+
+export function getAvailability(token) {
+  return apiRequest("/api/students/availability", { token });
+}
+
+export function saveAvailability(token, data) {
+  return apiRequest("/api/students/availability", {
+    method: "PUT",
+    body: data,
+    token,
+  });
+}

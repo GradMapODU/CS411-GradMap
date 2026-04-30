@@ -1180,3 +1180,272 @@ small{
     flex-direction: column;
   }
 }
+
+/* =========================================================
+   GradPlans Page — Additional Styles
+========================================================= */
+
+.gpSemesterCheckboxes{
+  display:grid;
+  gap:8px;
+  margin-top:10px;
+}
+
+.gpSemesterCheckbox{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:rgba(255,255,255,.02);
+  cursor:pointer;
+  transition:border-color .15s, background .15s;
+  font-size:.95rem;
+}
+
+.gpSemesterCheckbox:hover{
+  border-color:rgba(255,255,255,.18);
+  background:rgba(255,255,255,.04);
+}
+
+.gpSemesterCheckbox input[type="checkbox"]{
+  accent-color:var(--accent);
+  width:16px;
+  height:16px;
+  cursor:pointer;
+}
+
+.gpSavedPlans{
+  display:grid;
+  gap:12px;
+}
+
+.gpSavedPlanCard{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.02);
+  padding:14px;
+  cursor:pointer;
+  transition:border-color .15s, box-shadow .15s, background .15s;
+}
+
+.gpSavedPlanCard:hover{
+  border-color:rgba(255,255,255,.16);
+  background:rgba(255,255,255,.035);
+}
+
+.gpSavedPlanCard--selected{
+  border-color:var(--accent);
+  box-shadow:0 0 0 2px rgba(79,124,255,.20);
+  background:rgba(79,124,255,.06);
+}
+
+.gpSavedPlanCard__header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+}
+
+.gpSavedPlanCard__term{
+  margin:0;
+  font-size:1.05rem;
+}
+
+.gpSavedPlanCard__body{
+  margin-bottom:10px;
+}
+
+.gpSavedPlanCard__courseList{
+  display:grid;
+  gap:6px;
+}
+
+.gpSavedPlanCard__courseRow{
+  display:grid;
+  grid-template-columns: 100px minmax(0, 1fr) 50px 90px;
+  gap:8px;
+  align-items:center;
+  padding:6px 8px;
+  border-radius:8px;
+  background:rgba(255,255,255,.02);
+  font-size:.88rem;
+}
+
+.gpSavedPlanCard__courseCode{
+  font-weight:700;
+  color:#9bb3ff;
+}
+
+.gpSavedPlanCard__courseTitle{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.gpSavedPlanCard__actions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  padding-top:8px;
+  border-top:1px solid rgba(255,255,255,.06);
+}
+
+.gpBtn--small{
+  padding:6px 10px;
+  font-size:.82rem;
+  border-radius:8px;
+}
+
+.gpBtn--danger{
+  color:#ff8f8f;
+  border-color:rgba(255,77,77,.35);
+}
+
+.gpBtn--danger:hover{
+  background:rgba(255,77,77,.12);
+}
+
+/* Course status badges in plans */
+.gpStatus{
+  display:inline-block;
+  font-size:.78rem;
+  font-weight:600;
+  padding:3px 8px;
+  border-radius:999px;
+  white-space:nowrap;
+}
+
+.gpStatus--completed{
+  color:#7ee2a8;
+  background:rgba(46,204,113,.12);
+}
+
+.gpStatus--enrolled{
+  color:#9bb3ff;
+  background:rgba(79,124,255,.12);
+}
+
+.gpStatus--progress{
+  color:#ffe08a;
+  background:rgba(245,197,66,.12);
+}
+
+.gpStatus--planned{
+  color:var(--muted);
+  background:rgba(255,255,255,.04);
+}
+
+/* Requirement sections */
+.reqSection{
+  margin-top:12px;
+}
+
+.reqSection__title{
+  font-weight:700;
+  font-size:.92rem;
+  margin-bottom:6px;
+  color:var(--text);
+}
+
+.reqSection__list{
+  margin:0;
+  padding-left:18px;
+  font-size:.88rem;
+  color:var(--muted);
+}
+
+.reqSection__list li{
+  margin-bottom:4px;
+}
+
+.reqSection__empty{
+  font-size:.88rem;
+}
+
+/* Advisor note card */
+.advisorNoteCard{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+  background:rgba(255,255,255,.02);
+}
+
+.advisorNoteCard__author{
+  font-weight:700;
+  font-size:.92rem;
+  margin-bottom:6px;
+}
+
+.advisorNoteCard__message{
+  margin:0 0 8px;
+  font-size:.88rem;
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.advisorNoteCard__date{
+  font-size:.8rem;
+}
+
+/* =========================================================
+   Course Catalogue — Plan Edit Panel
+========================================================= */
+
+.catalogEditPanel{
+  margin-bottom:16px;
+  border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(79,124,255,.18);
+}
+
+.catalogEditPanel__header{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  margin-bottom:10px;
+  flex-wrap:wrap;
+}
+
+.catalogEditPanel__courses{
+  display:grid;
+  gap:6px;
+}
+
+.catalogEditPanel__row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:8px 10px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:rgba(255,255,255,.02);
+  font-size:.9rem;
+}
+
+.catalogEditPanel__code{
+  font-weight:700;
+  color:#9bb3ff;
+}
+
+@media (max-width: 900px){
+  .gradPlansLayout{
+    grid-template-columns:1fr;
+  }
+
+  .gpSavedPlanCard__courseRow{
+    grid-template-columns:80px minmax(0, 1fr) 40px 80px;
+    font-size:.82rem;
+  }
+}
+
+@media (max-width: 600px){
+  .gpSavedPlanCard__courseRow{
+    grid-template-columns:1fr;
+    gap:4px;
+  }
+}

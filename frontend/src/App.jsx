@@ -57,7 +57,6 @@ export default function App() {
   const [editingPlanId, setEditingPlanId] = useState(null);
   const [courseCatalogue, setCourseCatalogue] = useState([]);
 
-  
   // Load backend data whenever the session changes (login, role switch, etc.)
   useEffect(() => {
     const token = session?.token;
@@ -99,6 +98,16 @@ export default function App() {
     loadCourseCatalogue();
   }, [session?.token, currentStudent?.major]);
 
+  /** Refresh student data from the backend */
+  async function refreshStudent() {
+    if (!session?.token) return;
+    try {
+      const studentData = await getCurrentStudent(session.token);
+      setCurrentStudent(studentData || null);
+    } catch (err) {
+      console.error("Failed to refresh student data:", err);
+    }
+  }
 
   function loginSuccess(s) {
     setSession(s);
@@ -488,6 +497,8 @@ export default function App() {
   function goStudentPage(id) {
     setStudentPage(id);
     setMenuOpen(false);
+    // Clear editing state when navigating away from catalogue
+    if (id !== "catalogue") setEditingPlanId(null);
   }
 
   function renderStudentPage() {
@@ -498,58 +509,30 @@ export default function App() {
             student={currentStudent || {}}
             token={session?.token}
             onSubmitPlan={handleSubmitPlan}
-            onPlansChanged={async () => {
-              if (!session?.token) return;
-              try {
-                const studentData = await getCurrentStudent(session.token);
-                setCurrentStudent(studentData || null);
-              } catch (err) {
-                console.error("Failed to refresh student data:", err);
-              }
-            }}
+            onPlansChanged={refreshStudent}
           />
         );
       case "gradplans":
         return (
           <GradPlansPage
-            student={studentRecord}
-            degreeProgram={
-              appData.degreePrograms?.[studentRecord?.selectedDegreeProgramId] || null
-            }
-            editingPlanId={editingPlanId}
-            onUpdateGradPlans={(newPlans) => {
-              const sid = session?.username || "student1";
-              updateStudentGradPlans(sid, newPlans);
-            }}
-            onEditPlan={(planId) => {
-              handleEditPlan(planId);
-            }}
-            onSubmitPlan={(planId) => {
-              const sid = session?.username || "student1";
-              handleSubmitSpecificPlan(sid, planId);
-            }}
-            onClearPlan={(planId) => {
-              const sid = session?.username || "student1";
-              handleClearGradPlan(sid, planId);
-            }}
+            student={currentStudent || {}}
+            token={session?.token}
+            onEditPlan={(planId) => handleEditPlan(planId)}
+            onPlansChanged={refreshStudent}
           />
         );
 
       case "catalogue":
         return (
           <CourseCataloguePage
-            student={studentRecord}
+            student={currentStudent || {}}
             token={session?.token}
             courses={catalogueCourses}
             editingPlanId={editingPlanId}
             onSelectPlan={(planId) => setEditingPlanId(planId)}
-            onAddCourseToPlan={(planId, course) => {
-              const sid = session?.username || "student1";
-              handleAddCourseToGradPlan(sid, planId, course);
-            }}
-            onRemoveCourseFromPlan={(planId, courseCode) => {
-              const sid = session?.username || "student1";
-              handleRemoveCourseFromGradPlan(sid, planId, courseCode);
+            onPlanSaved={async () => {
+              setEditingPlanId(null);
+              await refreshStudent();
             }}
           />
         );
@@ -558,7 +541,8 @@ export default function App() {
         return (
           <MyAvailabilityPage
             key={session?.username || "student"}
-            student={studentRecord}
+            student={currentStudent || {}}
+            token={session?.token}
           />
         );
 

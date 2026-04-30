@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { updatePlanCourses } from "@api/students.js";
 
 function normalize(text) {
   return String(text || "").toLowerCase().trim();
@@ -17,7 +18,12 @@ function sortByCode(a, b) {
   });
 }
 
-function CourseCard({ course }) {
+function CourseCard({ course, editingPlan, onAddCourse }) {
+  const isInPlan =
+    editingPlan &&
+    Array.isArray(editingPlan.courses) &&
+    editingPlan.courses.some((c) => c.code === course.code);
+
   return (
     <article className="catalogCourseCard">
       <div className="catalogCourseCard__top">
@@ -57,21 +63,197 @@ function CourseCard({ course }) {
           <span className="muted">{course.format || "Lecture"}</span>
         </div>
       </div>
+
+      {editingPlan && (
+        <div style={{ marginTop: 8 }}>
+          {isInPlan ? (
+            <span className="catalogBadge" style={{ color: "#7ee2a8", borderColor: "rgba(46,204,113,.35)", background: "rgba(46,204,113,.12)" }}>
+              ✓ In Plan
+            </span>
+          ) : (
+            <button
+              className="btn primary gpBtn--small"
+              onClick={() => onAddCourse?.(course)}
+            >
+              + Add to Plan
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }
 
-export default function CourseCataloguePage({ student, courses = [] }) {
+function PlanEditPanel({ plan, onRemoveCourse, onSave, onCancel, saving }) {
+  const courses = Array.isArray(plan?.courses) ? plan.courses : [];
+  const totalCredits = courses.reduce(
+    (sum, c) => sum + Number(c.credits || 0),
+    0
+  );
+
+  return (
+    <div className="catalogEditPanel panel">
+      <div className="catalogEditPanel__header">
+        <div>
+          <h3 style={{ margin: 0 }}>
+            Editing: {plan?.term || "Plan"}
+          </h3>
+          <p className="muted" style={{ margin: "4px 0 0", fontSize: ".85rem" }}>
+            {courses.length} course{courses.length !== 1 ? "s" : ""} •{" "}
+            {totalCredits} credits
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn primary gpBtn--small"
+            onClick={onSave}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "💾 Save"}
+          </button>
+          <button className="btn gpBtn--small" onClick={onCancel}>
+            ✕ Cancel
+          </button>
+        </div>
+      </div>
+
+      {courses.length > 0 ? (
+        <div className="catalogEditPanel__courses">
+          {courses.map((course, i) => (
+            <div key={`edit-${course.code}-${i}`} className="catalogEditPanel__row">
+              <div>
+                <span className="catalogEditPanel__code">{course.code}</span>
+                <span className="muted"> — {course.title}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="muted">{course.credits} cr</span>
+                <button
+                  className="btn gpBtn--small gpBtn--danger"
+                  onClick={() => onRemoveCourse?.(course.code)}
+                  title="Remove from plan"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="muted" style={{ padding: "8px 0" }}>
+          No courses in this plan. Add courses from the catalogue below.
+        </p>
+      )}
+
+      {totalCredits > 0 && totalCredits < 12 && (
+        <p style={{ color: "#ffd54a", fontSize: ".85rem", marginTop: 8 }}>
+          ⚠ Plan has only {totalCredits} credits. Consider adding more courses
+          to meet the 12-credit minimum.
+        </p>
+      )}
+      {totalCredits > 18 && (
+        <p style={{ color: "#ff4d4d", fontSize: ".85rem", marginTop: 8 }}>
+          ⚠ Plan exceeds 18 credits ({totalCredits}). This is a very heavy
+          load.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export default function CourseCataloguePage({
+  student,
+  token,
+  courses = [],
+  editingPlanId,
+  onSelectPlan,
+  onPlanSaved,
+}) {
   const [search, setSearch] = useState("");
   const [levelFilter, setLevelFilter] = useState("all");
   const [creditFilter, setCreditFilter] = useState("all");
+  const [saving, setSaving] = useState(false);
 
   const major =
     student?.major || student?.program || student?.degreePlan || "Undeclared";
 
-    const allCourses = useMemo(() => {
-        return Array.isArray(courses) ? [...courses].sort(sortByCode) : [];
-    }, [courses]);
+  // Find the plan being edited from student data
+  const plans = useMemo(
+    () => (Array.isArray(student?.plan) ? student.plan : []),
+    [student?.plan]
+  );
+
+  const editingPlan = useMemo(() => {
+    if (!editingPlanId) return null;
+    return plans.find((p) => p.id === editingPlanId) || null;
+  }, [editingPlanId, plans]);
+
+  // Local copy of plan courses for editing
+  const [localCourses, setLocalCourses] = useState([]);
+
+  // Sync local courses when editingPlan changes
+  useState(() => {
+    if (editingPlan) {
+      setLocalCourses(
+        Array.isArray(editingPlan.courses) ? [...editingPlan.courses] : []
+      );
+    }
+  });
+
+  // Keep local courses in sync when plan data reloads
+  useMemo(() => {
+    if (editingPlan) {
+      setLocalCourses(
+        Array.isArray(editingPlan.courses) ? [...editingPlan.courses] : []
+      );
+    }
+  }, [editingPlan]);
+
+  // Build an editing-plan-like object with local courses
+  const localPlan = editingPlan
+    ? { ...editingPlan, courses: localCourses }
+    : null;
+
+  function handleAddCourse(course) {
+    if (!editingPlan) return;
+    const exists = localCourses.some((c) => c.code === course.code);
+    if (exists) return;
+    setLocalCourses((prev) => [
+      ...prev,
+      {
+        code: course.code,
+        title: course.title,
+        credits: course.credits,
+        status: "Planned",
+      },
+    ]);
+  }
+
+  function handleRemoveCourse(courseCode) {
+    setLocalCourses((prev) => prev.filter((c) => c.code !== courseCode));
+  }
+
+  async function handleSavePlan() {
+    if (!editingPlanId || !token) return;
+    setSaving(true);
+    try {
+      await updatePlanCourses(token, editingPlanId, localCourses);
+      // Clear editing state and refresh
+      if (typeof onSelectPlan === "function") onSelectPlan(null);
+      if (typeof onPlanSaved === "function") await onPlanSaved();
+    } catch (err) {
+      alert(err.message || "Failed to save plan.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    if (typeof onSelectPlan === "function") onSelectPlan(null);
+  }
+
+  const allCourses = useMemo(() => {
+    return Array.isArray(courses) ? [...courses].sort(sortByCode) : [];
+  }, [courses]);
 
   const filteredCourses = useMemo(() => {
     const q = normalize(search);
@@ -89,7 +271,8 @@ export default function CourseCataloguePage({ student, courses = [] }) {
           course.tags.some((tag) => normalize(tag).includes(q)));
 
       const matchesLevel =
-        levelFilter === "all" || normalize(courseLevel) === normalize(levelFilter);
+        levelFilter === "all" ||
+        normalize(courseLevel) === normalize(levelFilter);
 
       const matchesCredits =
         creditFilter === "all" || String(course.credits) === String(creditFilter);
@@ -112,6 +295,8 @@ export default function CourseCataloguePage({ student, courses = [] }) {
           <h2>Course Catalogue</h2>
           <p className="muted catalogHero__subtitle">
             Browse {major} courses, review prerequisites, and search up classes.
+            {editingPlan &&
+              " Add or remove courses to update your plan."}
           </p>
         </div>
 
@@ -123,10 +308,21 @@ export default function CourseCataloguePage({ student, courses = [] }) {
 
           <div className="catalogStat">
             <div className="catalogStat__value">{totalCredits}</div>
-            <div className="muted catalogStat__label">Visble Credits</div>
+            <div className="muted catalogStat__label">Visible Credits</div>
           </div>
         </div>
       </div>
+
+      {/* Plan editing panel */}
+      {localPlan && (
+        <PlanEditPanel
+          plan={localPlan}
+          onRemoveCourse={handleRemoveCourse}
+          onSave={handleSavePlan}
+          onCancel={handleCancelEdit}
+          saving={saving}
+        />
+      )}
 
       <div className="catalogToolbar panel">
         <div className="catalogToolbar__group catalogToolbar__group--search">
@@ -183,7 +379,12 @@ export default function CourseCataloguePage({ student, courses = [] }) {
       {filteredCourses.length > 0 ? (
         <div className="catalogGrid">
           {filteredCourses.map((course) => (
-            <CourseCard key={course.code} course={course} />
+            <CourseCard
+              key={course.code}
+              course={course}
+              editingPlan={localPlan}
+              onAddCourse={handleAddCourse}
+            />
           ))}
         </div>
       ) : (
