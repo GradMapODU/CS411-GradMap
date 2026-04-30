@@ -3,7 +3,6 @@ import { generateSemester, deletePlan } from "@api/students.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
 function getInitials(name = "") {
   const parts = String(name).trim().split(/\s+/).filter(Boolean);
@@ -47,22 +46,17 @@ function canEditPlan(plan) {
   );
 }
 
-/** Visible courses — filter out ghost rows that have no code */
 function getVisibleCourses(plan) {
   const courses = Array.isArray(plan?.courses) ? plan.courses : [];
   return courses.filter((c) => c.code && c.code.trim());
 }
 
-/** Display label for a plan — use term if present, otherwise fall back */
 function getPlanLabel(plan) {
   if (plan?.term && plan.term.trim()) return plan.term;
   if (plan?.id) return `Plan #${plan.id}`;
   return "Untitled Plan";
 }
 
-/**
- * Compute the next N semester labels starting from today.
- */
 function getUpcomingSemesters(count = 4) {
   const now = new Date();
   const month = now.getMonth();
@@ -92,7 +86,6 @@ function getUpcomingSemesters(count = 4) {
   return results;
 }
 
-/* ─── Sub-components ───────────────────────────────────────────────────────── */
 
 function RequirementSection({ title, items, emptyText }) {
   const list = Array.isArray(items) ? items : [];
@@ -216,7 +209,6 @@ function SavedPlanCard({
   );
 }
 
-/* ─── Main Page ────────────────────────────────────────────────────────────── */
 
 export default function GradPlansPage({
   student,
@@ -236,17 +228,15 @@ export default function GradPlansPage({
     return Array.isArray(student?.plan) ? student.plan : [];
   }, [student?.plan]);
 
-  // ── Generate state ──
+
   const upcomingSemesters = useMemo(() => getUpcomingSemesters(4), []);
   const [selectedSemesters, setSelectedSemesters] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
 
-  // ── Saved plan selection ──
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
-  // Filter out semesters that already have a plan with that term
-  // Only filter on non-empty terms so leftover empty plans don't block anything
+
   const availableSemesters = useMemo(() => {
     const existingTerms = new Set(
       plans
@@ -340,7 +330,7 @@ export default function GradPlansPage({
     doc.save(filename);
   }
 
-  // Split plans into editable vs locked
+
   const editablePlans = plans.filter((p) => canEditPlan(p));
   const lockedPlans = plans.filter((p) => !canEditPlan(p));
 
@@ -359,7 +349,7 @@ export default function GradPlansPage({
       <h2>GradPlans</h2>
 
       <div className="gradPlansLayout">
-        {/* ── Left Column: Generate ── */}
+
         <aside className="gradPlansLeftCol">
           <div className="panel stickyPanel">
             <h3>Generate Plans</h3>
@@ -406,7 +396,7 @@ export default function GradPlansPage({
           </div>
         </aside>
 
-        {/* ── Center Column: Saved Plans ── */}
+
         <main className="gradPlansCenterCol">
           <div className="panel gpProfileCard">
             <div className="gpProfileCard__avatar" aria-hidden="true">
@@ -420,7 +410,7 @@ export default function GradPlansPage({
             </div>
           </div>
 
-          {/* Editable Plans */}
+
           <div className="panel" style={{ marginBottom: 12 }}>
             <h3>
               Current Plans{" "}
@@ -451,7 +441,7 @@ export default function GradPlansPage({
             )}
           </div>
 
-          {/* Locked / Historical Plans */}
+
           {lockedPlans.length > 0 && (
             <div className="panel">
               <h3>
@@ -486,7 +476,7 @@ export default function GradPlansPage({
           )}
         </main>
 
-        {/* ── Right Column: Requirements + Advisor Notes ── */}
+
         <aside className="gradPlansRightCol">
           <div className="panel stickyPanel">
             <h3>Degree Requirements</h3>

@@ -10,7 +10,6 @@ export async function apiRequest(path, options = {}) {
     finalHeaders.Authorization = `Bearer ${token}`;
   }
 
-  // Auto-stringify plain object bodies; leave strings/FormData alone
   let finalBody = body;
   if (
     body &&

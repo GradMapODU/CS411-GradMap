@@ -4,8 +4,6 @@ const {
     Prerequisite
 } = require('../models');
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
 const hasTimeConflict = (slot1, slot2) => {
     const days1 = slot1.days.split('');
     const days2 = slot2.days.split('');
@@ -70,7 +68,6 @@ function computePlanAlerts(plan) {
     return alerts;
 }
 
-// ─── Day code mapping (DB uses single chars, frontend uses 3-letter IDs) ─────
 
 const DAY_CODE_TO_ID = { M: 'mon', T: 'tue', W: 'wed', R: 'thu', F: 'fri' };
 const DAY_ID_TO_CODE = { mon: 'M', tue: 'T', wed: 'W', thu: 'R', fri: 'F' };
@@ -95,16 +92,12 @@ function to24Hour(time12) {
     return `${String(h).padStart(2, '0')}:${m}`;
 }
 
-/**
- * Extract the numeric part of a course code for sorting.
- * e.g. "CS 150" → 150, "MATH 201" → 201
- */
+
 function getCourseNumber(courseCode) {
     const match = String(courseCode || '').match(/(\d+)/);
     return match ? parseInt(match[1], 10) : 9999;
 }
 
-// ─── controllers ──────────────────────────────────────────────────────────────
 
 exports.getRequirements = async (req, res) => {
     try {
@@ -123,21 +116,6 @@ exports.getRequirements = async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
-/**
- * POST /api/students/generate-semester
- *
- * Accepts: { semesters: ["Fall 2026", "Spring 2027", ...] }
- *   — up to 4 semesters at a time.
- *
- * For each semester it:
- *   1. Looks up the student's degree program requirements
- *   2. Finds which required courses the student has NOT yet completed/planned
- *   3. Sorts remaining courses by course number ascending (lower numbers first)
- *   4. Picks courses until 12-15 credits are reached
- *   5. Creates a Plan + PlannedCourses in the DB
- *
- * Availability is NOT taken into account (no current course time offerings).
- */
 exports.generateSemester = async (req, res) => {
     try {
         const student = await Student.findByPk(req.user.user_id);
@@ -151,7 +129,6 @@ exports.generateSemester = async (req, res) => {
             return res.status(400).json({ error: 'You can generate at most 4 semesters at a time.' });
         }
 
-        // Get the student's program requirements
         const program = await Program.findOne({
             where: { name: student.major },
             include: [{ model: Course }]
@@ -161,7 +138,6 @@ exports.generateSemester = async (req, res) => {
             return res.status(404).json({ error: 'Degree program not found for your major.' });
         }
 
-        // Get all courses the student has already planned/enrolled/completed
         const existingPlans = await Plan.findAll({
             where: { student_id: student.student_id },
             include: [{ model: PlannedCourse }]
@@ -175,20 +151,17 @@ exports.generateSemester = async (req, res) => {
             }
         }
 
-        // All required courses for the program, sorted by course number ascending
+
         let programCourses = (program.Courses || [])
             .filter(c => !alreadyPlannedCourseIds.has(c.course_id))
             .sort((a, b) => getCourseNumber(a.course_code) - getCourseNumber(b.course_code));
 
-        // Fallback: if no courses came from the program_courses join table,
-        // use ALL courses in the student's major/department instead.
         if (programCourses.length === 0) {
             const deptWhere = {};
             if (student.major) deptWhere.department = student.major;
 
             let fallbackCourses = await Course.findAll({ where: deptWhere });
 
-            // Second fallback: if no courses matched the department, use ALL courses
             if (fallbackCourses.length === 0 && student.major) {
                 fallbackCourses = await Course.findAll();
             }
@@ -198,18 +171,17 @@ exports.generateSemester = async (req, res) => {
                 .sort((a, b) => getCourseNumber(a.course_code) - getCourseNumber(b.course_code));
         }
 
-        // Track courses consumed across the generated semesters
         const usedCourseIds = new Set();
 
         const results = [];
 
         for (const semesterLabel of semesters) {
-            // Parse "Fall 2026" → semester = "Fall", year = 2026
+
             const parts = semesterLabel.trim().split(/\s+/);
             const semesterName = parts[0] || 'Fall';
             const year = parseInt(parts[1], 10) || new Date().getFullYear();
 
-            // Pick courses for this semester: 12-15 credits, lowest numbers first
+
             const selectedCourses = [];
             let totalCredits = 0;
 
@@ -217,18 +189,17 @@ exports.generateSemester = async (req, res) => {
                 if (usedCourseIds.has(course.course_id)) continue;
                 const credits = course.credits || 3;
 
-                // Don't exceed 15 credits
+
                 if (totalCredits + credits > 15) continue;
 
                 selectedCourses.push(course);
                 totalCredits += credits;
                 usedCourseIds.add(course.course_id);
 
-                // Stop if we've reached at least 12 credits
                 if (totalCredits >= 12) break;
             }
 
-            // Create the plan
+
             const plan = await Plan.create({
                 student_id: student.student_id,
                 degree_program: student.major,
@@ -236,7 +207,6 @@ exports.generateSemester = async (req, res) => {
                 creation_date: new Date()
             });
 
-            // Create planned courses
             for (const course of selectedCourses) {
                 await PlannedCourse.create({
                     plan_id: plan.plan_id,
@@ -247,7 +217,6 @@ exports.generateSemester = async (req, res) => {
                 });
             }
 
-            // Build response for this semester
             const courses = selectedCourses.map(c => ({
                 code: c.course_code,
                 title: c.course_name,
@@ -478,16 +447,42 @@ exports.deletePlan = async (req, res) => {
     }
 };
 
-/**
- * PUT /api/students/plans/:plan_id/courses
- *
- * Replaces all courses in a plan with the provided list.
- * Used by the "Edit Plan" flow on the Course Catalogue page.
- *
- * Body: { courses: [{ code: "CS 150", ... }, ...] }
- *
- * Only Draft and "Needs Revision" plans can be edited.
- */
+exports.submitPlan = async (req, res) => {
+    try {
+        const { plan_id } = req.params;
+
+        const plan = await Plan.findOne({
+            where: { plan_id, student_id: req.user.user_id },
+        });
+
+        if (!plan) {
+            return res.status(404).json({ error: 'Plan not found.' });
+        }
+
+        const submittableStatuses = ['Draft', 'Needs Revision', 'Needs Changes'];
+        if (!submittableStatuses.includes(plan.status)) {
+            return res.status(400).json({
+                error: `Only Draft or Needs Revision plans can be submitted. Current status: ${plan.status}`,
+            });
+        }
+
+        plan.status = 'Pending';
+        plan.submitted_on = new Date();
+        await plan.save();
+
+        res.json({
+            message: 'Plan submitted for advisor review.',
+            plan_id: plan.plan_id,
+            status: plan.status,
+            submitted_on: plan.submitted_on,
+        });
+    } catch (error) {
+        console.error('submitPlan error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+
 exports.updatePlanCourses = async (req, res) => {
     try {
         const { plan_id } = req.params;
@@ -511,10 +506,9 @@ exports.updatePlanCourses = async (req, res) => {
             return res.status(400).json({ error: 'courses must be an array.' });
         }
 
-        // Remove existing planned courses
+
         await PlannedCourse.destroy({ where: { plan_id } });
 
-        // Look up each course by code and re-create planned courses
         for (const c of courses) {
             const dbCourse = await Course.findOne({ where: { course_code: c.code } });
             if (!dbCourse) continue;
@@ -528,7 +522,6 @@ exports.updatePlanCourses = async (req, res) => {
             });
         }
 
-        // Reload the plan with updated courses
         const updatedPlan = await Plan.findByPk(plan_id, {
             include: [{ model: PlannedCourse, include: [Course] }]
         });
@@ -557,7 +550,6 @@ exports.updatePlanCourses = async (req, res) => {
     }
 };
 
-// ─── Availability endpoints ──────────────────────────────────────────────────
 
 exports.getAvailability = async (req, res) => {
     try {

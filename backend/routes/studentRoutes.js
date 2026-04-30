@@ -12,10 +12,9 @@ router.post('/generate-semester', studentCtrl.generateSemester);
 router.get('/plans/:plan_id/conflicts', studentCtrl.checkConflicts);
 router.get('/plans/:plan_id/feedback', studentCtrl.getPlanFeedback);
 router.put('/plans/:plan_id/courses', studentCtrl.updatePlanCourses);
+router.post('/plans/:plan_id/submit', studentCtrl.submitPlan);
 router.post('/register', registerStudent);
 router.delete('/plans/:plan_id', studentCtrl.deletePlan);
-
-// Availability routes
 router.get('/availability', studentCtrl.getAvailability);
 router.put('/availability', studentCtrl.saveAvailability);
 router.post('/availability', studentCtrl.addAvailability);

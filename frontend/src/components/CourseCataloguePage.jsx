@@ -176,7 +176,7 @@ export default function CourseCataloguePage({
   const major =
     student?.major || student?.program || student?.degreePlan || "Undeclared";
 
-  // Find the plan being edited from student data
+
   const plans = useMemo(
     () => (Array.isArray(student?.plan) ? student.plan : []),
     [student?.plan]
@@ -187,10 +187,10 @@ export default function CourseCataloguePage({
     return plans.find((p) => p.id === editingPlanId) || null;
   }, [editingPlanId, plans]);
 
-  // Local copy of plan courses for editing
+
   const [localCourses, setLocalCourses] = useState([]);
 
-  // Sync local courses when editingPlan changes
+
   useState(() => {
     if (editingPlan) {
       setLocalCourses(
@@ -199,7 +199,7 @@ export default function CourseCataloguePage({
     }
   });
 
-  // Keep local courses in sync when plan data reloads
+
   useMemo(() => {
     if (editingPlan) {
       setLocalCourses(
@@ -208,7 +208,7 @@ export default function CourseCataloguePage({
     }
   }, [editingPlan]);
 
-  // Build an editing-plan-like object with local courses
+
   const localPlan = editingPlan
     ? { ...editingPlan, courses: localCourses }
     : null;
@@ -237,7 +237,7 @@ export default function CourseCataloguePage({
     setSaving(true);
     try {
       await updatePlanCourses(token, editingPlanId, localCourses);
-      // Clear editing state and refresh
+
       if (typeof onSelectPlan === "function") onSelectPlan(null);
       if (typeof onPlanSaved === "function") await onPlanSaved();
     } catch (err) {
@@ -313,7 +313,6 @@ export default function CourseCataloguePage({
         </div>
       </div>
 
-      {/* Plan editing panel */}
       {localPlan && (
         <PlanEditPanel
           plan={localPlan}

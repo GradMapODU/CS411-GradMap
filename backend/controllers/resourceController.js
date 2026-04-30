@@ -1,6 +1,5 @@
 // controllers/resourceController.js
 
-// GET
 exports.getResources = async (req, res) => {
   try {
     

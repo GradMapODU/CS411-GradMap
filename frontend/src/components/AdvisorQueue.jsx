@@ -64,7 +64,7 @@ export default function AdvisorQueue({
 
   function handleSelectSubmission(row) {
     setExplicitSelectedId(row.id);
-    setFeedbackOverride(null); // resync textarea to this submission's feedback
+    setFeedbackOverride(null); 
   }
 
   function handleFeedbackChange(e) {

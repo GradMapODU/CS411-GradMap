@@ -64,27 +64,25 @@ exports.createUserProfile = async (req, res) => {
             department             
         } = req.body;
 
-        //Hash the password
+
         const password_hash = await bcrypt.hash(password, 10);
 
-        //Create the base User account
         const newUser = await User.create({
             username,
             password_hash,
             role
         }, { transaction: t });
 
-        //Check the role and create the matching profile!
         if (role === 'Student') {
             const studentMajor = major || 'Undeclared';
 
-            //Look for an advisor in the matching department
+
             const matchedAdvisor = await Advisor.findOne({
                 where: { department: studentMajor },
                 transaction: t
             });
 
-            //If no specific advisor exists, find a General Advisor
+
             let assignedAdvisorId = matchedAdvisor ? matchedAdvisor.advisor_id : null;
             
             if (!assignedAdvisorId) {
@@ -92,11 +90,11 @@ exports.createUserProfile = async (req, res) => {
                     where: { department: 'General Advising' },
                     transaction: t
                 });
-                // it stays null 
+
                 assignedAdvisorId = defaultAdvisor ? defaultAdvisor.advisor_id : null; 
             }
 
-            //Create the Student and link the Advisor
+
             await Student.create({
                 student_id: newUser.get('user_id') || newUser.id || newUser.user_id,
                 first_name,
@@ -104,7 +102,7 @@ exports.createUserProfile = async (req, res) => {
                 major: studentMajor,
                 year: year || 1,
                 GPA: gpa || '0.0',
-                advisor_id: assignedAdvisorId //The automatic link
+                advisor_id: assignedAdvisorId 
             }, { transaction: t });
             
         } else if (role === 'Advisor') {
@@ -116,7 +114,7 @@ exports.createUserProfile = async (req, res) => {
             }, { transaction: t });
         }
 
-        //save both to the database
+
         await t.commit();
         res.status(201).json({ 
             message: `Success! ${role} account and profile created for ${first_name} ${last_name}.`,
@@ -124,7 +122,7 @@ exports.createUserProfile = async (req, res) => {
         });
 
     } catch (error) {
-        //undo the whole thing if anything goes wrong
+
         await t.rollback();
         console.error("Creation Error:", error);
         res.status(500).json({ error: error.message });

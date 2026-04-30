@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { deletePlan } from "@api/students.js";
+import { deletePlan, submitPlan } from "@api/students.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -94,7 +94,7 @@ function getAdvisorReviewText(plan) {
   return "Not submitted";
 }
 
-export default function StudentDashboard({ student, token, onSubmitPlan, onPlansChanged }) {
+export default function StudentDashboard({ student, token, onEditPlan, onPlansChanged }) {
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
   const pctFromCredits =
@@ -206,11 +206,7 @@ export default function StudentDashboard({ student, token, onSubmitPlan, onPlans
 
   const submittablePlans = selectedPlans.filter((plan) => {
     const status = normalizeStatus(plan?.status).toLowerCase();
-    return (
-      status === "draft" ||
-      status === "awaiting submission" ||
-      status === "needs changes"
-    );
+    return status === "draft";
   });
 
   const canSubmit = submittablePlans.length > 0;
@@ -220,7 +216,9 @@ export default function StudentDashboard({ student, token, onSubmitPlan, onPlans
     const s = normalizeStatus(p.status).toLowerCase();
     return s !== "approved" && s !== "historical";
   });
-  const canEdit = selectedCount === 1;
+  const canEdit =
+    selectedCount === 1 &&
+    normalizeStatus(selectedSinglePlan?.status).toLowerCase() === "draft";
 
   const submitLabel =
     submittablePlans.length > 1 ? "Submit Plan(s)" : "Submit Plan";
@@ -241,17 +239,25 @@ export default function StudentDashboard({ student, token, onSubmitPlan, onPlans
     setSelectedPlanIds([]);
   }
 
-  function handleSubmitSelected() {
-    if (!submittablePlans.length) return;
+  async function handleSubmitSelected() {
+    if (!submittablePlans.length || !token) return;
 
-    if (typeof onSubmitPlan === "function") {
-      onSubmitPlan(submittablePlans);
+    try {
+      await Promise.all(
+        submittablePlans.map((plan) => submitPlan(token, plan.id))
+      );
+      setSelectedPlanIds([]);
+      if (typeof onPlansChanged === "function") await onPlansChanged();
+    } catch (err) {
+      alert(err?.message || "Failed to submit plan(s). Please try again.");
     }
   }
 
   function handleEditSelected() {
-    if (!selectedSinglePlan) return;
-    console.log("Edit plan:", selectedSinglePlan);
+    if (!canEdit || !selectedSinglePlan) return;
+    if (typeof onEditPlan === "function") {
+      onEditPlan(selectedSinglePlan.id);
+    }
   }
 
   async function handleDeleteSelected() {
@@ -570,7 +576,7 @@ export default function StudentDashboard({ student, token, onSubmitPlan, onPlans
           disabled={!canSubmit}
           title={
             !canSubmit
-              ? "Select a Draft, Awaiting Submission, or Needs Changes plan."
+              ? "Select a Draft plan to submit."
               : undefined
           }
         >
@@ -581,7 +587,7 @@ export default function StudentDashboard({ student, token, onSubmitPlan, onPlans
           className="btn"
           onClick={handleEditSelected}
           disabled={!canEdit}
-          title={!canEdit ? "Select exactly one plan to edit." : undefined}
+          title={!canEdit ? "Select exactly one Draft plan to edit." : undefined}
         >
           Edit Plan
         </button>

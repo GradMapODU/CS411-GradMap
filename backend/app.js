@@ -11,7 +11,6 @@ const app = express();
 
 const { DataTypes } = require('sequelize');
 
-// ── Resource model (defined here alongside other models) ──────────────────────
 const Resource = sequelize.define('Resource', {
   id:          { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   title:       { type: DataTypes.STRING(200),  allowNull: false },
@@ -22,10 +21,9 @@ const Resource = sequelize.define('Resource', {
   is_active:   { type: DataTypes.BOOLEAN, defaultValue: true },
 }, { timestamps: false, tableName: 'resources' });
 
-// Make the model available to the controller
+
 global._ResourceModel = Resource;
 
-// Middleware
 app.use(express.json());
 
 // Routes
@@ -36,7 +34,7 @@ app.use('/api/admins', adminRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/resources', resourceRoutes);
 
-// Test endpoint
+
 app.get('/', (req, res) => {
     res.send('GradMap backend running');
 });
@@ -144,23 +142,26 @@ async function seedDemoUsers() {
 }
 
 async function assignDemoAdvisors() {
-  const advisor1User = await User.findOne({ where: { username: 'advisor1' } });
-  const advisor2User = await User.findOne({ where: { username: 'advisor2' } });
-  const student1User = await User.findOne({ where: { username: 'student1' } });
-  const student2User = await User.findOne({ where: { username: 'student2' } });
+
+  const advisor1User = await User.findOne({ where: { username: 'Advisor1' } });
+  const student1User = await User.findOne({ where: { username: 'Student1' } });
+  const student2User = await User.findOne({ where: { username: 'Student2' } });
+
 
   if (student1User && advisor1User) {
     await Student.update(
       { advisor_id: advisor1User.user_id },
       { where: { student_id: student1User.user_id } }
     );
+    console.log('Assigned Student1 -> Advisor1');
   }
 
-  if (student2User && advisor2User) {
+  if (student2User && advisor1User) {
     await Student.update(
-      { advisor_id: advisor2User.user_id },
+      { advisor_id: advisor1User.user_id },
       { where: { student_id: student2User.user_id } }
     );
+    console.log('Assigned Student2 -> Advisor1');
   }
 }
 
@@ -290,9 +291,7 @@ async function seedDemoPlans() {
     return plan;
   }
  
-  // ---------------------------------------------------------------------
-  // Student1 — almost done
-  // ---------------------------------------------------------------------
+
   const student1 = await User.findOne({ where: { username: 'Student1' } });
   if (student1) {
     // Freshman year
@@ -312,7 +311,7 @@ async function seedDemoPlans() {
       ['CS 315',  'Completed', 'A' ],
     ]);
 
-    // Sophomore year
+
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2024, 'Historical', [
       ['CS 330',  'Completed', 'B+'],
       ['CS 350',  'Completed', 'A' ],
@@ -346,7 +345,7 @@ async function seedDemoPlans() {
       ['CS 486', 'Completed', 'A' ],
     ]);
 
-    // Senior year — current semester
+
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2026, 'Approved', [
       ['CS 431', 'Enrolled', null],
       ['CS 478', 'Enrolled', null],
@@ -354,27 +353,32 @@ async function seedDemoPlans() {
       ['CS 432', 'Enrolled', null],
       ['CS 150', 'Planned',  null], 
     ]);
-    await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2027, 'Draft', [
+
+
+    await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2027, 'Pending', [
       ['CS 463', 'Planned', null],
       ['CS 480', 'Planned', null],
       ['CS 488', 'Planned', null],
     ]);
+
+
+    await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2027, 'Draft', [
+      ['CS 481', 'Planned', null],
+      ['CS 467', 'Planned', null],
+    ]);
     console.log('Student1: seeded semester plans');
   }
- 
-  // ---------------------------------------------------------------------
-  // Student2 — empty start (one Draft plan for next term)
-  // ---------------------------------------------------------------------
+
   const student2 = await User.findOne({ where: { username: 'Student2' } });
   if (student2) {
-    await createSemesterPlan(student2.user_id, 'Cybersecurity', 'Fall', 2026, 'Draft', [
+    await createSemesterPlan(student2.user_id, 'Cybersecurity', 'Fall', 2026, 'Pending', [
       ['CYSE 200T', 'Planned', null],
       ['CYSE 300',  'Planned', null],
       ['CS 150',    'Planned', null],
       ['CS 252',    'Planned', null],
     ]);
  
-    console.log('Student2: seeded 1 Draft plan for Fall 2026');
+    console.log('Student2: seeded 1 Pending plan for Fall 2026');
   }
 }
 
@@ -386,13 +390,8 @@ async function seedDemoFeedback() {
 
   if (!advisor1 || !student1) return;
 
-  // Find Student1's two current/upcoming plans (skip Historical)
   const fall2026 = await Plan.findOne({
     where: { student_id: student1.user_id, status: 'Approved' },
-  });
-
-  const spring2027 = await Plan.findOne({
-    where: { student_id: student1.user_id, status: 'Draft' },
   });
 
   if (fall2026) {
@@ -403,16 +402,6 @@ async function seedDemoFeedback() {
         "Approved your final semester. The 16-credit load is on the heavier side — make sure CS 487 doesn't conflict with your CS 411W hours. Reach out if you need to drop CS 150.",
     });
     console.log('Advisor feedback seeded for Student1 Fall 2026');
-  }
-
-  if (spring2027) {
-    await PlanFeedback.create({
-      plan_id: spring2027.plan_id,
-      advisor_id: advisor1.user_id,
-      message:
-        "Please confirm your senior audit is on file with the registrar before you submit. Once you do, I'll review course selection.",
-    });
-    console.log('Advisor feedback seeded for Student1 Spring 2027');
   }
 }
 

@@ -24,6 +24,5 @@ export function addFeedback(token, planId, message) {
   });
 }
 
-// Aliases used by App.jsx
 export const getStudents = getMyStudents;
 export const updatePlan = reviewPlan;

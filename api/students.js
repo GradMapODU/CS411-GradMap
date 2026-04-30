@@ -28,6 +28,13 @@ export function deletePlan(token, planId) {
   });
 }
 
+export function submitPlan(token, planId) {
+  return apiRequest(`/api/students/plans/${planId}/submit`, {
+    method: "POST",
+    token,
+  });
+}
+
 export function updatePlanCourses(token, planId, courses) {
   return apiRequest(`/api/students/plans/${planId}/courses`, {
     method: "PUT",

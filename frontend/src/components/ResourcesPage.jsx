@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { getResources } from "@api/resources.js";
 
-// ── Category metadata (icon + accent color class) ────────────────────────────
 const CATEGORY_META = {
   "Registration":               { emoji: "📋", colorClass: ""   },
   "Academic Planning":          { emoji: "🎓", colorClass: ""   },
@@ -17,7 +16,7 @@ function getCategoryMeta(cat) {
   return CATEGORY_META[cat] || { emoji: "🔗", colorClass: "resCat--grey" };
 }
 
-// ── Single resource card ──────────────────────────────────────────────────────
+
 function ResourceCard({ item }) {
   return (
     <a
@@ -38,7 +37,7 @@ function ResourceCard({ item }) {
   );
 }
 
-// ── Category section ──────────────────────────────────────────────────────────
+
 function CategorySection({ category, items }) {
   const { colorClass } = getCategoryMeta(category);
   return (
@@ -56,7 +55,7 @@ function CategorySection({ category, items }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function ResourcesPage({ token }) {
   const [grouped,  setGrouped]  = useState({});
   const [loading,  setLoading]  = useState(true);
@@ -80,7 +79,7 @@ export default function ResourcesPage({ token }) {
     load();
   }, [token]);
 
-  // ── Filter by search query ──────────────────────────────────────────────────
+  
   const query = search.trim().toLowerCase();
 
   const filteredGrouped = {};
@@ -99,7 +98,7 @@ export default function ResourcesPage({ token }) {
   const totalLinks = Object.values(grouped).reduce((s, a) => s + a.length, 0);
   const visibleLinks = Object.values(filteredGrouped).reduce((s, a) => s + a.length, 0);
 
-  // Preserve a stable category order
+  
   const CATEGORY_ORDER = Object.keys(CATEGORY_META);
   const sortedCategories = Object.keys(filteredGrouped).sort((a, b) => {
     const ai = CATEGORY_ORDER.indexOf(a);
@@ -112,7 +111,7 @@ export default function ResourcesPage({ token }) {
 
   return (
     <section className="card resourcesPage">
-      {/* ── Header ── */}
+      
       <div className="resourcesPage__header">
         <div>
           <h2 className="resourcesPage__title">
@@ -134,7 +133,7 @@ export default function ResourcesPage({ token }) {
         </div>
       </div>
 
-      {/* ── Search bar ── */}
+      
       <div className="resourcesPage__searchWrap">
         <span className="resourcesPage__searchIcon" aria-hidden="true"></span>
         <input
@@ -156,7 +155,7 @@ export default function ResourcesPage({ token }) {
         )}
       </div>
 
-      {/* ── States ── */}
+      
       {loading && (
         <div className="resourcesPage__state">
           <span className="spinner" aria-hidden="true" />
@@ -178,14 +177,14 @@ export default function ResourcesPage({ token }) {
         </div>
       )}
 
-      {/* ── Search result count ── */}
+      
       {!loading && !error && query && sortedCategories.length > 0 && (
         <p className="muted resourcesPage__resultCount">
           Showing {visibleLinks} of {totalLinks} links
         </p>
       )}
 
-      {/* ── Category sections ── */}
+      
       {!loading && !error && (
         <div className="resourcesPage__body">
           {sortedCategories.map((cat) => (

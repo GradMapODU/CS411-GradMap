@@ -15,7 +15,11 @@ import { mockData } from "./data/mockData.js";
 import "./App.css";
 
 import { getCurrentStudent, getRequirements } from "@api/students.js";
-import { getStudents as getAdvisorStudents, updatePlan } from "@api/advisors.js";
+import {
+  getCurrentAdvisor,
+  getMyStudents as getAdvisorStudents,
+  reviewPlan,
+} from "@api/advisors.js";
 
 function AdvisingHubPage() {
   return (
@@ -39,25 +43,33 @@ function AdminDashboard() {
   );
 }
 
-function getTodayString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export default function App() {
   const [view, setView] = useState("login");
   const [session, setSession] = useState(null);
   const [studentPage, setStudentPage] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [appData, setAppData] = useState(mockData);
 
-  // backend-backed state
   const [_studentRequirements, setStudentRequirements] = useState(null);
-  const [advisorStudents, setAdvisorStudents] = useState(null);
   const [currentStudent, setCurrentStudent] = useState(null);
+  const [currentAdvisor, setCurrentAdvisor] = useState(null);
+  const [advisorData, setAdvisorData] = useState({ students: [], submissions: [] });
   const [editingPlanId, setEditingPlanId] = useState(null);
   const [courseCatalogue, setCourseCatalogue] = useState([]);
+  async function refreshAdvisorData() {
+    if (!session?.token) return;
+    try {
+      const data = await getAdvisorStudents(session.token);
+      setAdvisorData({
+        students: Array.isArray(data?.students) ? data.students : [],
+        submissions: Array.isArray(data?.submissions) ? data.submissions : [],
+      });
+    } catch (err) {
+      console.error("Failed to refresh advisor data:", err);
+    }
+  }
 
-  // Load backend data whenever the session changes (login, role switch, etc.)
   useEffect(() => {
     const token = session?.token;
     if (!token) return;
@@ -73,8 +85,15 @@ export default function App() {
         }
 
         if (session.roles?.includes("advisor")) {
-          const students = await getAdvisorStudents(token);
-          setAdvisorStudents(students);
+          const [advisorMe, students] = await Promise.all([
+            getCurrentAdvisor(token),
+            getAdvisorStudents(token),
+          ]);
+          setCurrentAdvisor(advisorMe || null);
+          setAdvisorData({
+            students: Array.isArray(students?.students) ? students.students : [],
+            submissions: Array.isArray(students?.submissions) ? students.submissions : [],
+          });
         }
       } catch (err) {
         console.error("Failed to load backend data:", err);
@@ -98,7 +117,6 @@ export default function App() {
     loadCourseCatalogue();
   }, [session?.token, currentStudent?.major]);
 
-  /** Refresh student data from the backend */
   async function refreshStudent() {
     if (!session?.token) return;
     try {
@@ -122,7 +140,8 @@ export default function App() {
     setMenuOpen(false);
     setCurrentStudent(null);
     setStudentRequirements(null);
-    setAdvisorStudents(null);
+    setCurrentAdvisor(null);
+    setAdvisorData({ students: [], submissions: [] });
     setEditingPlanId(null);
   }
 
@@ -143,292 +162,44 @@ export default function App() {
     return (a + b).toUpperCase();
   }
 
-  function updateStudentPlan(studentId, planId, updater) {
-    setAppData((prev) => {
-      const student = prev.students?.[studentId];
-      if (!student) return prev;
+  // ---------- Advisor actions (backend-backed) ----------
 
-      const updatedPlans = (student.plan || []).map((plan) =>
-        plan.id === planId ? updater(plan) : plan
-      );
+  async function handleApprovePlan({ planId, feedback }) {
+    const token = session?.token;
+    if (!token || !planId) return;
 
-      const updatedGradPlans = Array.isArray(student.gradPlans)
-        ? student.gradPlans.map((gp) => {
-            const matchPlan = updatedPlans.find((p) => p.id === planId);
-            if (!matchPlan) return gp;
-
-            if (gp.id === matchPlan.id || gp.term === matchPlan.term) {
-              return {
-                ...gp,
-                status: matchPlan.status,
-                advisorStatus: matchPlan.advisorStatus,
-                advisorFeedback: matchPlan.advisorFeedback,
-                submittedOn: matchPlan.submittedOn,
-                reviewedBy: matchPlan.reviewedBy,
-                reviewedOn: matchPlan.reviewedOn,
-              };
-            }
-
-            return gp;
-          })
-        : student.gradPlans;
-
-      return {
-        ...prev,
-        students: {
-          ...prev.students,
-          [studentId]: {
-            ...student,
-            plan: updatedPlans,
-            gradPlans: updatedGradPlans,
-          },
-        },
-      };
-    });
-  }
-
-  function updateStudentGradPlans(studentId, newGradPlans) {
-    setAppData((prev) => {
-      const student = prev.students?.[studentId];
-      if (!student) return prev;
-
-      const gradPlansArray = Array.isArray(newGradPlans) ? newGradPlans : [];
-      const existingPlan = Array.isArray(student.plan) ? student.plan : [];
-
-      const derivedPlan = gradPlansArray.map((gp) => {
-        const match = existingPlan.find(
-          (p) => p.id === gp.id || p.term === gp.term
-        );
-
-        let credits = gp.plannedCredits;
-        if (credits == null) {
-          if (Array.isArray(gp.courses)) {
-            credits = gp.courses.reduce(
-              (sum, c) => sum + Number(c?.credits ?? 0),
-              0
-            );
-          } else {
-            credits = 0;
-          }
-        }
-
-        return {
-          id: match?.id || gp.id || `plan-${gp.term}`,
-          term: gp.term,
-          courses: Array.isArray(gp.courses) ? gp.courses : [],
-          credits,
-          status: match?.status || gp.status || "Planned",
-          submittedOn: match?.submittedOn || gp.submittedOn || "",
-          advisorStatus: match?.advisorStatus || gp.advisorStatus || "",
-          advisorFeedback: match?.advisorFeedback || gp.advisorFeedback || "",
-          reviewedBy: match?.reviewedBy || gp.reviewedBy || "",
-          reviewedOn: match?.reviewedOn || gp.reviewedOn || "",
-        };
+    try {
+      await reviewPlan(token, planId, {
+        status: "Approved",
+        message: feedback || "",
       });
-
-      return {
-        ...prev,
-        students: {
-          ...prev.students,
-          [studentId]: {
-            ...student,
-            gradPlans: gradPlansArray,
-            plan: derivedPlan,
-          },
-        },
-      };
-    });
+      await refreshAdvisorData();
+    } catch (err) {
+      console.error("Failed to approve plan:", err);
+      alert(`Could not approve plan: ${err.message || "Unknown error"}`);
+    }
   }
 
-  async function handleApprovePlan({ advisorId, studentId, planId, feedback }) {
+  async function handleRequestChanges({ planId, feedback }) {
     const token = session?.token;
+    if (!token || !planId) return;
 
-    if (token && planId) {
-      try {
-        await updatePlan(token, planId, "Approved", feedback || "Approved with no additional comments.");
-      } catch (err) {
-        console.error("Failed to approve plan:", err);
-      }
+    try {
+      await reviewPlan(token, planId, {
+        status: "Needs Revision",
+        message: feedback || "",
+      });
+      await refreshAdvisorData();
+    } catch (err) {
+      console.error("Failed to request plan changes:", err);
+      alert(`Could not return plan: ${err.message || "Unknown error"}`);
     }
-
-    const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
-    const reviewedOn = getTodayString();
-
-    updateStudentPlan(studentId, planId, (plan) => ({
-      ...plan,
-      status: "Approved",
-      advisorStatus: "Approved",
-      advisorFeedback: feedback || "Approved with no additional comments.",
-      reviewedBy: advisorName,
-      reviewedOn,
-    }));
-  }
-
-  async function handleRequestChanges({
-    advisorId,
-    studentId,
-    planId,
-    feedback,
-  }) {
-    const token = session?.token;
-
-    if (token && planId) {
-      try {
-        await updatePlan(token, planId, "Needs Revision", feedback || "Please revise this plan.");
-      } catch (err) {
-        console.error("Failed to request plan changes:", err);
-      }
-    }
-
-    const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
-    const reviewedOn = getTodayString();
-
-    updateStudentPlan(studentId, planId, (plan) => ({
-      ...plan,
-      status: "Needs Changes",
-      advisorStatus: "Needs Changes",
-      advisorFeedback: feedback || "Please revise this plan.",
-      reviewedBy: advisorName,
-      reviewedOn,
-    }));
-  }
-
-  function handleSubmitPlan() {
-    if (!session?.username) return;
-
-    const studentId = session.username;
-    const student = appData.students?.[studentId];
-    if (!student) return;
-
-    const firstDraftPlan = (student.plan || []).find(
-      (p) => p.status === "Draft" || p.status === "Awaiting Submission"
-    );
-
-    if (!firstDraftPlan) {
-      alert("No draft or awaiting-submission plan found.");
-      return;
-    }
-
-    updateStudentPlan(studentId, firstDraftPlan.id, (plan) => ({
-      ...plan,
-      status: "Submitted",
-      advisorStatus: "Pending",
-      submittedOn: getTodayString(),
-      advisorFeedback: "",
-      reviewedBy: "",
-      reviewedOn: "",
-    }));
   }
 
   function handleEditPlan(planId) {
     if (!planId) return;
     setEditingPlanId(planId);
     setStudentPage("catalogue");
-  }
-
-  function handleSubmitSpecificPlan(studentId, planId) {
-    if (!studentId || !planId) return;
-
-    updateStudentPlan(studentId, planId, (plan) => ({
-      ...plan,
-      status: "Submitted",
-      advisorStatus: "Pending",
-      submittedOn: getTodayString(),
-      advisorFeedback: "",
-      reviewedBy: "",
-      reviewedOn: "",
-    }));
-  }
-
-  function handleClearGradPlan(studentId, planId) {
-    const student = appData.students?.[studentId];
-    if (!student) return;
-
-    const newGradPlans = Array.isArray(student.gradPlans)
-      ? student.gradPlans.map((gp) => {
-          if (gp.id === planId || gp.term === planId) {
-            return {
-              ...gp,
-              courses: [],
-              plannedCredits: 0,
-            };
-          }
-          return gp;
-        })
-      : [];
-
-    updateStudentGradPlans(studentId, newGradPlans);
-  }
-
-  function handleAddCourseToGradPlan(studentId, planId, course) {
-    const student = appData.students?.[studentId];
-    if (!student || !course) return;
-
-    const newGradPlans = Array.isArray(student.gradPlans)
-      ? student.gradPlans.map((gp) => {
-          if (gp.id === planId || gp.term === planId) {
-            const existingCourses = Array.isArray(gp.courses) ? gp.courses : [];
-            const alreadyExists = existingCourses.some(
-              (c) => c.code === course.code
-            );
-            if (alreadyExists) return gp;
-
-            const updatedCourses = [
-              ...existingCourses,
-              {
-                code: course.code,
-                title: course.title,
-                credits: course.credits,
-                status: "Planned",
-              },
-            ];
-
-            const totalCredits = updatedCourses.reduce(
-              (sum, c) => sum + Number(c.credits ?? 0),
-              0
-            );
-
-            return {
-              ...gp,
-              courses: updatedCourses,
-              plannedCredits: totalCredits,
-            };
-          }
-          return gp;
-        })
-      : [];
-
-    updateStudentGradPlans(studentId, newGradPlans);
-  }
-
-  function handleRemoveCourseFromGradPlan(studentId, planId, courseCode) {
-    const student = appData.students?.[studentId];
-    if (!student || !courseCode) return;
-
-    const newGradPlans = Array.isArray(student.gradPlans)
-      ? student.gradPlans.map((gp) => {
-          if (gp.id === planId || gp.term === planId) {
-            const existingCourses = Array.isArray(gp.courses) ? gp.courses : [];
-            const updatedCourses = existingCourses.filter(
-              (c) => c.code !== courseCode
-            );
-
-            const totalCredits = updatedCourses.reduce(
-              (sum, c) => sum + Number(c.credits ?? 0),
-              0
-            );
-
-            return {
-              ...gp,
-              courses: updatedCourses,
-              plannedCredits: totalCredits,
-            };
-          }
-          return gp;
-        })
-      : [];
-
-    updateStudentGradPlans(studentId, newGradPlans);
   }
 
   if (view === "login") {
@@ -468,20 +239,10 @@ export default function App() {
   const activeRole = session?.activeRole || "student";
   const roles = session?.roles || ["student"];
 
-  const studentRecord =
-    (session?.username && appData.students?.[session.username]) ||
-    appData.students?.student1;
-
-  const advisorRecord =
-    (session?.username && appData.advisors?.[session.username]) ||
-    appData.advisors?.advisor1;
-
   const catalogueCourses =
     courseCatalogue.length > 0
       ? courseCatalogue
-      : appData?.courseCatalog?.[studentRecord?.major] ||
-        appData?.courseCatalog?.["Computer Science"] ||
-        [];
+      : [];
 
   const showStudentSidebar = activeRole === "student";
 
@@ -497,7 +258,7 @@ export default function App() {
   function goStudentPage(id) {
     setStudentPage(id);
     setMenuOpen(false);
-    // Clear editing state when navigating away from catalogue
+
     if (id !== "catalogue") setEditingPlanId(null);
   }
 
@@ -508,7 +269,7 @@ export default function App() {
           <StudentDashboard
             student={currentStudent || {}}
             token={session?.token}
-            onSubmitPlan={handleSubmitPlan}
+            onEditPlan={handleEditPlan}
             onPlansChanged={refreshStudent}
           />
         );
@@ -658,9 +419,8 @@ export default function App() {
           renderStudentPage()
         ) : activeRole === "advisor" ? (
           <AdvisorQueue
-            advisor={advisorRecord}
-            students={appData.students}
-            advisorStudents={advisorStudents}
+            advisor={currentAdvisor}
+            data={advisorData}
             onApprovePlan={handleApprovePlan}
             onRequestChanges={handleRequestChanges}
           />

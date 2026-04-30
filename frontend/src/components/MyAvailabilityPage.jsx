@@ -81,7 +81,7 @@ export default function MyAvailabilityPage({ student, token }) {
   const [newEnd, setNewEnd] = useState("3:00 PM");
   const [newRepeats, setNewRepeats] = useState("Weekly");
 
-  // ── Load availability from backend on mount ──────────────────────────────
+  
   useEffect(() => {
     async function load() {
       if (!token) {
@@ -120,7 +120,7 @@ export default function MyAvailabilityPage({ student, token }) {
         [dayId]: HOUR_OPTIONS.filter((h) => current.has(h)),
       };
     });
-    // Clear any previous save message when user makes changes
+    
     setSaveMsg(null);
   }
 
@@ -132,7 +132,7 @@ export default function MyAvailabilityPage({ student, token }) {
     setSaveMsg(null);
   }
 
-  // ── Save availability to backend ─────────────────────────────────────────
+  
   async function handleSaveAvailability() {
     if (!token) {
       alert("You must be logged in to save availability.");
@@ -223,7 +223,7 @@ export default function MyAvailabilityPage({ student, token }) {
     });
   }, [weeklyHours, blocks]);
 
-  // ── Loading state ────────────────────────────────────────────────────────
+  
   if (loading) {
     return (
       <section className="card">
@@ -245,14 +245,14 @@ export default function MyAvailabilityPage({ student, token }) {
         Select a term, choose a day, and toggle the hours you are free for classes.
       </p>
 
-      {/* ── Error banner ── */}
+      
       {error && (
         <div className="panel" style={{ borderLeft: "4px solid #e53e3e", marginBottom: 12 }}>
           <p style={{ color: "#e53e3e", margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
 
-      {/* ── Success banner ── */}
+      
       {saveMsg && (
         <div className="panel" style={{ borderLeft: "4px solid #38a169", marginBottom: 12 }}>
           <p style={{ color: "#38a169", margin: 0 }}>✓ {saveMsg}</p>

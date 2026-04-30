@@ -2,7 +2,8 @@
 
 Full-Stack Academic Advising Platform (React + Vite + Node.js + Express + MySQL)
 GradMap is a role-based academic planning system for students, advisors, and administrators.
-It supports graduation plan management, course registration, advisor scheduling, and program analytics — all backed by a live REST API and relational database.
+It supports graduation plan management, course registration, advisor scheduling, and program analytics
+- all backed by a live REST API and relational database.
 
 ---
 
@@ -39,7 +40,7 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in the `backend/` directory (see [Environment Variables](#environment-variables)), then start the server:
+Create a `.env` file in the `backend/` directory then start the server:
 
 ```bash
 node app.js
@@ -67,12 +68,10 @@ http://localhost:5173
 
 ## Overview
 
-GradMap is a full-stack platform built to streamline the academic advising process. This version connects the React frontend to a live Express + MySQL backend. Core functionality includes:
+GradMap is a full-stack platform built to streamline the academic advising process
 
-- **JWT-based authentication** with role-specific access control
 - **Students** can view their profile, browse the course catalogue, build graduation plans, check for schedule conflicts, and register for courses
 - **Advisors** can view their assigned students, review submitted plans, and leave feedback
-- **Admins** can create programs, upload courses, manage prerequisites, set semester offerings, and view demand analytics
 
 ---
 
@@ -96,7 +95,7 @@ GradMap is a full-stack platform built to streamline the academic advising proce
 ---
 
 ## Project Structure
-
+- (Tree)
 ```
 gradmap/
   backend/
@@ -145,13 +144,13 @@ gradmap/
 ## Requirements
 
 **Backend**
-- Node.js
-- npm (comes with Node)
+- Node.js w/ npm
 - MySQL database (local or hosted)
 
 **Frontend**
 - Node.js
 - npm
+- npm install jspdf jspdf-autotable     
 
 ---
 
@@ -167,9 +166,6 @@ DB_HOST=localhost
 JWT_SECRET=your_jwt_secret
 PORT=3000
 ```
-
-> The backend will automatically seed a default admin account and demo users on first run if they don't already exist.
-
 ---
 
 ## API Routes
@@ -177,67 +173,31 @@ PORT=3000
 All routes are prefixed with `/api`.
 
 ### Auth — `/api/auth`
-| Method | Endpoint    | Description              | Auth Required |
-|--------|-------------|--------------------------|---------------|
-| POST   | `/register` | Register a new user      | No            |
-| POST   | `/login`    | Login and receive a JWT  | No            |
-
-### Students — `/api/students`
-All routes require a valid Student JWT.
-
-| Method | Endpoint                        | Description                         |
-|--------|---------------------------------|-------------------------------------|
-| GET    | `/me`                           | Get current student's profile       |
-| GET    | `/requirements`                 | Get degree requirements             |
-| POST   | `/generate-semester`            | Auto-generate a semester plan       |
-| GET    | `/plans/:plan_id/conflicts`     | Check a plan for schedule conflicts |
-| GET    | `/plans/:plan_id/feedback`      | Get advisor feedback on a plan      |
-| POST   | `/register`                     | Register for a course               |
-| DELETE | `/plans/:plan_id`               | Delete a graduation plan            |
-
-### Advisors — `/api/advisors`
-All routes require a valid Advisor JWT.
-
-| Method | Endpoint                        | Description                         |
-|--------|---------------------------------|-------------------------------------|
-| GET    | `/students`                     | Get all assigned students           |
-| PUT    | `/plans/:plan_id`               | Approve or flag a student plan      |
-| POST   | `/plans/:plan_id/feedback`      | Leave feedback on a student plan    |
-
-### Admins — `/api/admins`
-All routes require a valid Admin JWT.
-
-| Method | Endpoint               | Description                          |
-|--------|------------------------|--------------------------------------|
-| POST   | `/programs`            | Create a new degree program          |
-| POST   | `/courses`             | Upload a new course                  |
-| POST   | `/program-courses`     | Add a course to a program            |
-| POST   | `/semester-offerings`  | Set when a course is offered         |
-| POST   | `/prerequisites`       | Define course prerequisites          |
-| GET    | `/analytics/demand`    | View course demand analytics         |
-| POST   | `/create-user`         | Create a user profile manually       |
-
-### Courses — `/api/courses`
-| Method | Endpoint | Description           |
-|--------|----------|-----------------------|
-| GET    | `/`      | Get all courses       |
+- POST /register — Register a new user (No auth required)
+- POST /login — Login and receive a JWT (No auth required)
+### Students — /api/students (Requires Student JWT)
+- GET /me — Get current student's profile
+- GET /requirements — Get degree requirements
+- POST /generate-semester — Auto-generate a semester plan
+- GET /plans/:plan_id/conflicts — Check a plan for schedule conflicts
+- GET /plans/:plan_id/feedback — Get advisor feedback on a plan
+- POST /register — Register for a course
+- DELETE /plans/:plan_id — Delete a graduation plan
+### Advisors — /api/advisors (Requires Advisor JWT)
+- GET /students — Get all assigned students
+- PUT /plans/:plan_id — Approve or flag a student plan
+- POST /plans/:plan_id/feedback — Leave feedback on a student plan
+### Courses — /api/courses
+- GET / — Get all courses
+### Demo Accounts
+- Admin — admin / Admin123!
+- Student — Student1 / Student1!
+- Student — Student2 / Student2!
+- Advisor — Advisor1 / Advisor1!
 
 ---
 
-## Demo Accounts
-
-The backend seeds the following accounts on startup if they don't already exist:
-
-| Role    | Username  | Password    |
-|---------|-----------|-------------|
-| Admin   | `admin`   | `Admin123!` |
-| Student | `Student1`| `Student1!` |
-| Student | `Student2`| `Student2!` |
-| Advisor | `Advisor1`| `Advisor1!` |
-
----
-
-## Recommended Extensions (in VS Code)
+## Recommended Extensions for VS Code
 
 My extension stack:
 
@@ -253,10 +213,3 @@ My extension stack:
 - REST Client *(handy for testing API routes directly in VS Code)*
 
 ---
-
-## Contributing
-
-1. Create a new branch for your feature or fix
-2. Keep frontend and backend concerns separated
-3. Test your API changes before updating the frontend
-4. Open a pull request with a clear description of what changed

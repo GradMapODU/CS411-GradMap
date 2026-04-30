@@ -2,7 +2,6 @@ const {
     Student, Advisor, Plan, PlannedCourse, Course, Program, PlanFeedback
 } = require('../models');
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function buildTermLabel(plannedCourses) {
     if (!Array.isArray(plannedCourses) || plannedCourses.length === 0) return "";
@@ -110,7 +109,6 @@ function aggregateStudentAlerts(planRows) {
     return studentAlerts;
 }
 
-// ─── controllers ──────────────────────────────────────────────────────────────
 
 exports.getCurrentAdvisor = async (req, res) => {
     try {
