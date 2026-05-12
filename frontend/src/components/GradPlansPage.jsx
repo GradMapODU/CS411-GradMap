@@ -86,6 +86,43 @@ function getUpcomingSemesters(count = 4) {
   return results;
 }
 
+// Group skip reasons by severity. Used by both the failure path (showing
+// blocker reasons in red) and the success-with-warnings path (showing prereq
+// warnings in yellow alongside a created plan).
+//
+// Returns: { blockers: "3× No sections offered...; 1× ...", warnings: "..." }
+// Either field can be empty string if there's nothing in that bucket.
+function summarizeSkipped(skipped) {
+  const list = Array.isArray(skipped) ? skipped : [];
+  const blockerCounts = new Map();
+  const warningCounts = new Map();
+  for (const s of list) {
+    const reason = s?.reason || "Unknown reason";
+    const target = s?.severity === "warning" ? warningCounts : blockerCounts;
+    target.set(reason, (target.get(reason) || 0) + 1);
+  }
+  const fmt = (m) =>
+    Array.from(m.entries())
+      .map(([reason, n]) => `${n}× ${reason}`)
+      .join("; ");
+  return { blockers: fmt(blockerCounts), warnings: fmt(warningCounts) };
+}
+
+// Build a human-readable failure message from a generateSemester response
+// where plan_id is null (no plan was created).
+function buildFailureSummary(result, term) {
+  const baseMsg = result?.message || `No plan created for ${term}.`;
+  const { blockers } = summarizeSkipped(result?.skipped);
+  return blockers ? `${term}: ${baseMsg} (${blockers})` : `${term}: ${baseMsg}`;
+}
+
+// Build a human-readable warnings message from a generateSemester response
+// where the plan WAS created but has prereq/other soft warnings.
+function buildWarningSummary(result, term) {
+  const { warnings } = summarizeSkipped(result?.skipped);
+  return warnings ? `${term}: ${warnings}` : "";
+}
+
 
 function RequirementSection({ title, items, emptyText }) {
   const list = Array.isArray(items) ? items : [];
@@ -233,6 +270,9 @@ export default function GradPlansPage({
   const [selectedSemesters, setSelectedSemesters] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
+  // Warnings (yellow) — plan was created, but with caveats (e.g. missing
+  // prereqs not yet scheduled). Distinct from generateError (red).
+  const [generateWarning, setGenerateWarning] = useState("");
 
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
@@ -266,13 +306,53 @@ export default function GradPlansPage({
     if (selectedSemesters.length === 0) return;
     setGenerating(true);
     setGenerateError("");
+    setGenerateWarning("");
+
+    // Track partial successes so a later failure doesn't hide earlier wins.
+    const created = [];
+    // Collect per-term warning summaries from successful generations.
+    const warningSummaries = [];
 
     try {
-      await generateSemester(token, { semesters: selectedSemesters });
+      for (const term of selectedSemesters) {
+        const [semester, yearStr] = term.split(" ");
+        const year = Number(yearStr);
+        const result = await generateSemester(token, { semester, year });
+        // Helpful while debugging — leave for now, remove when stable.
+        console.log("generateSemester result:", term, result);
+
+        if (result?.plan_id == null) {
+          // Hard failure — surface blocker reasons.
+          throw new Error(buildFailureSummary(result, term));
+        }
+        created.push(term);
+
+        // Soft path — plan was created, but may have prereq warnings.
+        const wsum = buildWarningSummary(result, term);
+        if (wsum) warningSummaries.push(wsum);
+      }
       setSelectedSemesters([]);
+      if (warningSummaries.length) {
+        setGenerateWarning(
+          `Plans created with warnings: ${warningSummaries.join(" | ")}`
+        );
+      }
       if (typeof onPlansChanged === "function") await onPlansChanged();
     } catch (err) {
-      setGenerateError(err.message || "Failed to generate plans.");
+      const partial = created.length
+        ? ` (Created ${created.length} of ${selectedSemesters.length}: ${created.join(", ")}.)`
+        : "";
+      setGenerateError(`${err.message || "Failed to generate plans."}${partial}`);
+      // If any plans succeeded with warnings before the failure, surface those too.
+      if (warningSummaries.length) {
+        setGenerateWarning(
+          `Created with warnings: ${warningSummaries.join(" | ")}`
+        );
+      }
+      // Still refresh so any successful plans show up in the list.
+      if (created.length && typeof onPlansChanged === "function") {
+        await onPlansChanged();
+      }
     } finally {
       setGenerating(false);
     }
@@ -382,6 +462,22 @@ export default function GradPlansPage({
             {generateError && (
               <div className="error" style={{ marginTop: 8, fontSize: ".9rem" }}>
                 {generateError}
+              </div>
+            )}
+
+            {generateWarning && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: "6px 8px",
+                  fontSize: ".9rem",
+                  background: "#fff8e1",
+                  border: "1px solid #f0c14b",
+                  borderRadius: 4,
+                  color: "#8a6d3b",
+                }}
+              >
+                ⚠ {generateWarning}
               </div>
             )}
 

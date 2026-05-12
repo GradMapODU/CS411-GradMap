@@ -43,7 +43,7 @@ npm install
 Create a `.env` file in the `backend/` directory then start the server:
 
 ```bash
-node app.js
+npm start
 ```
 
 The API will be available at:

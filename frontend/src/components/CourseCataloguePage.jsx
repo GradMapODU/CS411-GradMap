@@ -18,11 +18,58 @@ function sortByCode(a, b) {
   });
 }
 
-function CourseCard({ course, editingPlan, onAddCourse }) {
+// Build a set of course codes the student has already completed.
+// Mirrors the backend's definition: a planned course counts as completed
+// when its status is "Completed".
+function buildCompletedSet(student) {
+  const plans = Array.isArray(student?.plan) ? student.plan : [];
+  const completed = new Set();
+  for (const plan of plans) {
+    const courses = Array.isArray(plan?.courses) ? plan.courses : [];
+    for (const c of courses) {
+      if (c?.status === "Completed" && c?.code) {
+        completed.add(c.code);
+      }
+    }
+  }
+  return completed;
+}
+
+// Given a course's prereq codes and the student's completed set, return
+// { met, missing, satisfied } where satisfied is true iff missing is empty.
+function evaluatePrereqs(course, completedCodes) {
+  // Prefer the structured array; fall back to parsing the display string.
+  let codes = Array.isArray(course?.prerequisiteCodes)
+    ? course.prerequisiteCodes
+    : null;
+
+  if (!codes) {
+    const raw = String(course?.prerequisites || "").trim();
+    codes = raw && raw !== "None listed"
+      ? raw.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+      : [];
+  }
+
+  const met = [];
+  const missing = [];
+  for (const code of codes) {
+    (completedCodes.has(code) ? met : missing).push(code);
+  }
+
+  return { codes, met, missing, satisfied: missing.length === 0 };
+}
+
+function CourseCard({ course, editingPlan, onAddCourse, completedCodes }) {
   const isInPlan =
     editingPlan &&
     Array.isArray(editingPlan.courses) &&
     editingPlan.courses.some((c) => c.code === course.code);
+
+  const { codes: prereqCodes, met, missing, satisfied } = evaluatePrereqs(
+    course,
+    completedCodes
+  );
+  const hasPrereqs = prereqCodes.length > 0;
 
   return (
     <article className="catalogCourseCard">
@@ -55,7 +102,44 @@ function CourseCard({ course, editingPlan, onAddCourse }) {
       <div className="catalogCourseCard__meta">
         <div>
           <span className="catalogLabel">Prerequisites:</span>{" "}
-          <span className="muted">{course.prerequisites || "None listed"}</span>
+          {hasPrereqs ? (
+            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 4 }}>
+              {met.map((code) => (
+                <span
+                  key={`${course.code}-met-${code}`}
+                  title="You have completed this prerequisite"
+                  style={{
+                    color: "#7ee2a8",
+                    background: "rgba(46,204,113,.12)",
+                    border: "1px solid rgba(46,204,113,.35)",
+                    borderRadius: 4,
+                    padding: "1px 6px",
+                    fontSize: ".85rem",
+                  }}
+                >
+                  ✓ {code}
+                </span>
+              ))}
+              {missing.map((code) => (
+                <span
+                  key={`${course.code}-missing-${code}`}
+                  title="You have not completed this prerequisite"
+                  style={{
+                    color: "#ff6b6b",
+                    background: "rgba(255,77,77,.10)",
+                    border: "1px solid rgba(255,77,77,.40)",
+                    borderRadius: 4,
+                    padding: "1px 6px",
+                    fontSize: ".85rem",
+                  }}
+                >
+                  ✗ {code}
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="muted">None listed</span>
+          )}
         </div>
 
         <div>
@@ -67,15 +151,34 @@ function CourseCard({ course, editingPlan, onAddCourse }) {
       {editingPlan && (
         <div style={{ marginTop: 8 }}>
           {isInPlan ? (
-            <span className="catalogBadge" style={{ color: "#7ee2a8", borderColor: "rgba(46,204,113,.35)", background: "rgba(46,204,113,.12)" }}>
+            <span
+              className="catalogBadge"
+              style={{
+                color: "#7ee2a8",
+                borderColor: "rgba(46,204,113,.35)",
+                background: "rgba(46,204,113,.12)",
+              }}
+            >
               ✓ In Plan
             </span>
-          ) : (
+          ) : satisfied ? (
             <button
               className="btn primary gpBtn--small"
               onClick={() => onAddCourse?.(course)}
             >
               + Add to Plan
+            </button>
+          ) : (
+            <button
+              className="btn gpBtn--small"
+              disabled
+              title={`Missing prerequisite${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`}
+              style={{
+                opacity: 0.55,
+                cursor: "not-allowed",
+              }}
+            >
+              🔒 Prereqs not met
             </button>
           )}
         </div>
@@ -182,6 +285,9 @@ export default function CourseCataloguePage({
     [student?.plan]
   );
 
+  // Set of course codes the student has completed — used to grade prereqs.
+  const completedCodes = useMemo(() => buildCompletedSet(student), [student]);
+
   const editingPlan = useMemo(() => {
     if (!editingPlanId) return null;
     return plans.find((p) => p.id === editingPlanId) || null;
@@ -217,6 +323,17 @@ export default function CourseCataloguePage({
     if (!editingPlan) return;
     const exists = localCourses.some((c) => c.code === course.code);
     if (exists) return;
+
+    // Defense-in-depth: even if something bypasses the disabled button,
+    // refuse to add a course whose prerequisites aren't met.
+    const { missing, satisfied } = evaluatePrereqs(course, completedCodes);
+    if (!satisfied) {
+      alert(
+        `Cannot add ${course.code}. Missing prerequisite${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`
+      );
+      return;
+    }
+
     setLocalCourses((prev) => [
       ...prev,
       {
@@ -383,6 +500,7 @@ export default function CourseCataloguePage({
               course={course}
               editingPlan={localPlan}
               onAddCourse={handleAddCourse}
+              completedCodes={completedCodes}
             />
           ))}
         </div>

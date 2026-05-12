@@ -80,14 +80,34 @@ exports.getCourses = async (req, res) => {
     const where = {};
     if (department) where.department = department;
     if (q) where.course_name = { [require('sequelize').Op.like]: `%${q}%` };
-    const courses = await Course.findAll({ where });
 
-    const mapped = courses.map(c => ({
-      code: c.course_code,
-      title: c.course_name,
-      credits: c.credits,
-      department: c.department,
-    }));
+    const courses = await Course.findAll({
+      where,
+      include: [{
+        model: Course,
+        as: 'RequiredPrerequisites',
+        attributes: ['course_code', 'course_name'],
+        through: { attributes: [] },
+      }],
+    });
+
+    const mapped = courses.map(c => {
+      const prereqList = (c.RequiredPrerequisites || [])
+        .map(p => p.course_code)
+        .sort();
+
+      return {
+        code: c.course_code,
+        title: c.course_name,
+        credits: c.credits,
+        department: c.department,
+        description: c.course_description,
+
+        prerequisites: prereqList.length > 0 ? prereqList.join(', ') : '',
+
+        prerequisiteCodes: prereqList,
+      };
+    });
     res.json(mapped);
   } catch (err) {
     console.error(err);

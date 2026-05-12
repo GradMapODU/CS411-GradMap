@@ -56,6 +56,9 @@ const Course = sequelize.define('Course', {
 const TimeSlot = sequelize.define('Time_Slot', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     course_id: DataTypes.INTEGER,
+    section_number: DataTypes.STRING(10), // "001", "002" — groups meeting rows into one section
+    semester: DataTypes.ENUM('Fall', 'Spring', 'Summer', 'Winter'),
+    year: DataTypes.INTEGER,
     days: DataTypes.STRING(10), //"MWF", "TR"
     time_range: DataTypes.STRING(50) // "09:00-10:15"
 }, { timestamps: false });
@@ -113,23 +116,11 @@ const PlanFeedback = sequelize.define('PlanFeedback', {
 
 const StudentAvailability = sequelize.define('StudentAvailability', {
     availability_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    student_id: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-    },
-    day: {
-        type: DataTypes.STRING(1), //'M', 'T', 'W', 'R', 'F'
-        allowNull: false,
-    },
-    start_time: {
-        type: DataTypes.STRING(5), // "HH:MM" format
-        allowNull: false,
-    },
-    end_time: {
-        type: DataTypes.STRING(5), // "HH:MM" format
-        allowNull: false,
-    }
-} ,{ timestamps: false, tableName: 'Student_availability' });
+    student_id: { type: DataTypes.INTEGER, allowNull: false },
+    day: { type: DataTypes.STRING(1), allowNull: false },   // 'M','T','W','R','F'
+    start_time: { type: DataTypes.STRING(5), allowNull: false }, // "HH:MM"
+    end_time: { type: DataTypes.STRING(5), allowNull: false }    // "HH:MM"
+}, { timestamps: false, tableName: 'Student_availability' });
 
 //Relationships
 User.hasOne(Student, { foreignKey: 'student_id' });
@@ -157,9 +148,6 @@ PlanFeedback.belongsTo(Plan, { foreignKey: 'plan_id' });
 Advisor.hasMany(PlanFeedback, { foreignKey: 'advisor_id' });
 PlanFeedback.belongsTo(Advisor, { foreignKey: 'advisor_id' });
 
-Student.hasMany(StudentAvailability, { foreignKey: 'student_id' });
-StudentAvailability.belongsTo(Student, { foreignKey: 'student_id' });
-
 // Program to Course (Many-to-Many)
 Program.belongsToMany(Course, { through: ProgramCourse, foreignKey: 'program_id' });
 Course.belongsToMany(Program, { through: ProgramCourse, foreignKey: 'course_id' });
@@ -175,6 +163,10 @@ Course.belongsToMany(Course, {
     foreignKey: 'course_id', 
     otherKey: 'prerequisite_course_id' 
 });
+
+// Student availability
+Student.hasMany(StudentAvailability, { foreignKey: 'student_id' });
+StudentAvailability.belongsTo(Student, { foreignKey: 'student_id' });
 
 module.exports = { 
     sequelize, User, Student, Advisor, Admin, Course, 

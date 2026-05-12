@@ -46,9 +46,9 @@ async function seedAdmin() {
         const hashed = await bcrypt.hash('Admin123!', 10);
         const user = await User.create({  username: 'admin', password_hash: hashed, role: 'Admin' });
         await Admin.create({
-             admin_id: user.user_id, 
-             first_name: 'Default', 
-             last_name: 'Admin', 
+             admin_id: user.user_id,
+             first_name: 'Default',
+             last_name: 'Admin',
              access_level: 1 });
         console.log('Default admin created: username=admin, password=Admin123!');
     }
@@ -166,21 +166,66 @@ async function assignDemoAdvisors() {
 }
 
 async function seedDemoPrograms() {
-  const { Program } = require('./models/index.js');
+  const { Program, Course, ProgramCourse } = require('./models/index.js');
 
   const programs = [
     { name: 'Computer Science', total_credits_required: 120 },
     { name: 'Cybersecurity', total_credits_required: 120 },
   ];
 
+  // Foundation CS courses to cross-list into Cybersecurity.
+  const CS_FOUNDATION_FOR_CYBER = ['CS 150', 'CS 170', 'CS 250', 'CS 350', 'CS 381'];
+
+  // Departments whose courses should be linked to *every* program
+  // (university-wide GenEd + math/stat that all majors need).
+  const SHARED_DEPARTMENTS = ['Mathematics', 'English', 'Communication',
+                              'Philosophy', 'History', 'Psychology',
+                              'Art', 'Physics'];
+
   for (const p of programs) {
-    const exists = await Program.findOne({ where: { name: p.name } });
-    if (!exists) {
-      await Program.create(p);
-      console.log(`Demo program created: ${p.name}`);
+    const [program] = await Program.findOrCreate({
+      where: { name: p.name },
+      defaults: p,
+    });
+
+    // 1. Major-department courses.
+    const majorCourses = await Course.findAll({ where: { department: p.name } });
+
+    // 2. Shared GenEd + math courses.
+    const sharedCourses = await Course.findAll({
+      where: { department: SHARED_DEPARTMENTS },
+    });
+
+    // 3. Cybersecurity also gets CS foundation.
+    let foundationCourses = [];
+    if (p.name === 'Cybersecurity') {
+      foundationCourses = await Course.findAll({
+        where: { course_code: CS_FOUNDATION_FOR_CYBER },
+      });
     }
+
+    const allForThisProgram = [...majorCourses, ...sharedCourses, ...foundationCourses];
+
+    let linked = 0;
+    for (const c of allForThisProgram) {
+      const [, created] = await ProgramCourse.findOrCreate({
+        where: { program_id: program.id, course_id: c.course_id },
+        defaults: {
+          program_id: program.id,
+          course_id: c.course_id,
+          requirement_type: c.category || 'Elective',
+        },
+      });
+      if (created) linked++;
+    }
+
+    console.log(`Linked ${linked} courses to program "${p.name}" ` +
+                `(${majorCourses.length} major + ${sharedCourses.length} shared` +
+                (foundationCourses.length ? ` + ${foundationCourses.length} foundation` : '') + `).`);
   }
 }
+
+
 async function seedDemoCourses() {
   const { Course } = require('./models/index.js');
 
@@ -240,6 +285,28 @@ async function seedDemoCourses() {
     { course_code: 'CYSE 450',   course_name: 'Cybersecurity Policy and Law',                           credits: 3, category: 'General',  department: 'Cybersecurity', course_description: 'Examines legal frameworks, compliance standards (NIST, HIPAA, GDPR), and policy creation for cybersecurity.' },
     { course_code: 'CYSE 480',   course_name: 'Cybersecurity Capstone I',                               credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'First part of the capstone experience; students develop a security-focused project proposal and prototype.' },
     { course_code: 'CYSE 481',   course_name: 'Cybersecurity Capstone II',                              credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Completion and defense of the capstone project begun in CYSE 480.' },
+
+    // ---------- Mathematics & Statistics (required for CS/Cyber major) ----------
+    { course_code: 'MATH 211',   course_name: 'Calculus I',                                             credits: 4, category: 'Core',     department: 'Mathematics', course_description: 'Limits, continuity, derivatives, and integrals of single-variable functions with applications to science and engineering.' },
+    { course_code: 'MATH 212',   course_name: 'Calculus II',                                            credits: 4, category: 'Core',     department: 'Mathematics', course_description: 'Techniques and applications of integration, sequences, series, and an introduction to differential equations.' },
+    { course_code: 'MATH 316',   course_name: 'Introductory Linear Algebra',                           credits: 3, category: 'Core',     department: 'Mathematics', course_description: 'Vector spaces, matrices, linear transformations, eigenvalues, and applications used throughout computer science.' },
+    { course_code: 'STAT 330',   course_name: 'Introduction to Probability and Statistics',            credits: 3, category: 'Core',     department: 'Mathematics', course_description: 'Probability theory, common distributions, statistical inference, hypothesis testing, and regression for scientists.' },
+
+    // ---------- Written & Oral Communication (GenEd) ----------
+    { course_code: 'ENGL 110C',  course_name: 'English Composition',                                   credits: 3, category: 'General',  department: 'English',       course_description: 'Foundational composition course covering academic argument, source evaluation, drafting, and revision. Grade of C or better required for graduation.' },
+    { course_code: 'ENGL 211C',  course_name: 'Advanced Composition',                                  credits: 3, category: 'General',  department: 'English',       course_description: 'Continues academic writing with longer research-based assignments, source synthesis, and audience-aware rhetoric.' },
+    { course_code: 'COMM 101R',  course_name: 'Public Speaking',                                       credits: 3, category: 'General',  department: 'Communication', course_description: 'Theory and practice of public speaking: audience analysis, argument structure, delivery, and informative/persuasive presentations.' },
+
+    // ---------- Other GenEd Categories ----------
+    { course_code: 'PHIL 110P',  course_name: 'Philosophy and Ethics',                                 credits: 3, category: 'General',  department: 'Philosophy',    course_description: 'Introduction to ethical theory and applied ethics, examining moral reasoning across personal, professional, and technological contexts.' },
+    { course_code: 'HIST 100H',  course_name: 'Interpreting the Past: Western Civilization',           credits: 3, category: 'General',  department: 'History',       course_description: 'Survey of major political, social, and cultural developments in Western civilization with attention to historical methodology.' },
+    { course_code: 'PSYC 201S',  course_name: 'Introduction to Psychology',                            credits: 3, category: 'General',  department: 'Psychology',    course_description: 'Survey of human behavior, cognition, development, and social processes. Satisfies the Human Behavior General Education category.' },
+    { course_code: 'ARTH 121A',  course_name: 'Human Creativity in the Visual Arts',                   credits: 3, category: 'General',  department: 'Art',           course_description: 'Examines the visual arts as a form of human creativity through historical and cross-cultural perspectives.' },
+    { course_code: 'ENGL 112L',  course_name: 'Introduction to Literature',                            credits: 3, category: 'General',  department: 'English',       course_description: 'Reading and interpretation of fiction, poetry, and drama with attention to genre conventions and literary criticism.' },
+
+    // ---------- Nature of Science (8-credit sequence) ----------
+    { course_code: 'PHYS 231N',  course_name: 'University Physics I',                                  credits: 4, category: 'General',  department: 'Physics',       course_description: 'Calculus-based mechanics: kinematics, Newton\'s laws, energy, momentum, rotation, and oscillations. First in the Nature of Science sequence.' },
+    { course_code: 'PHYS 232N',  course_name: 'University Physics II',                                 credits: 4, category: 'General',  department: 'Physics',       course_description: 'Calculus-based electromagnetism, waves, and optics. Second in the Nature of Science sequence.' },
   ];
 
   for (const c of courses) {
@@ -251,23 +318,249 @@ async function seedDemoCourses() {
   console.log('Demo courses seeded.');
 }
 
+// ── Course offerings & time slots ─────────────────────────────────────────────
+async function seedOfferings() {
+  const { Course, TimeSlot, SemesterOffering } = require('./models/index.js');
+
+  // Already seeded? Skip. (Safe across restarts that don't force-reset the DB.)
+  const existingSlots = await TimeSlot.count();
+  if (existingSlots > 0) {
+    console.log(`Offerings already seeded (${existingSlots} time slots). Skipping.`);
+    return;
+  }
+
+  const SEMESTERS = ['Fall', 'Spring'];
+  const YEAR = new Date().getFullYear();
+
+  // Meeting pattern pools.
+  const MWF_PATTERNS = [
+    { days: 'MWF', time_range: '08:00-08:50' },
+    { days: 'MWF', time_range: '09:00-09:50' },
+    { days: 'MWF', time_range: '10:00-10:50' },
+    { days: 'MWF', time_range: '11:00-11:50' },
+    { days: 'MWF', time_range: '12:00-12:50' },
+    { days: 'MWF', time_range: '13:00-13:50' },
+    { days: 'MWF', time_range: '14:00-14:50' },
+    { days: 'MWF', time_range: '15:00-15:50' },
+  ];
+
+  const TR_PATTERNS = [
+    { days: 'TR', time_range: '08:00-09:15' },
+    { days: 'TR', time_range: '09:30-10:45' },
+    { days: 'TR', time_range: '11:00-12:15' },
+    { days: 'TR', time_range: '12:30-13:45' },
+    { days: 'TR', time_range: '14:00-15:15' },
+    { days: 'TR', time_range: '15:30-16:45' },
+  ];
+
+  // Single-day longer blocks (labs/seminars), used as a secondary meeting
+  // for ~20% of sections.
+  const SINGLE_DAY_PATTERNS = [
+    { days: 'W', time_range: '12:00-14:50' },
+    { days: 'M', time_range: '15:00-17:50' },
+    { days: 'F', time_range: '13:00-15:50' },
+    { days: 'T', time_range: '16:00-18:30' },
+    { days: 'R', time_range: '17:00-19:30' },
+  ];
+
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const pad3 = (n) => String(n).padStart(3, '0');
+
+  function sectionCountFor(course) {
+    if (course.category === 'Core') return 3;
+    if (course.category === 'Elective') return 2;
+    if (course.category === 'General') return Math.random() < 0.5 ? 2 : 1;
+    return 2;
+  }
+
+  function buildSectionMeetings() {
+    const primary = Math.random() < 0.6 ? pick(MWF_PATTERNS) : pick(TR_PATTERNS);
+    const meetings = [primary];
+    if (Math.random() < 0.2) {
+      meetings.push(pick(SINGLE_DAY_PATTERNS));
+    }
+    return meetings;
+  }
+
+  const courses = await Course.findAll();
+  if (courses.length === 0) {
+    console.log('No courses found — skipping offerings seed.');
+    return;
+  }
+
+  let totalSlots = 0;
+  let totalOfferings = 0;
+
+  for (const course of courses) {
+    const numSections = sectionCountFor(course);
+
+    for (const semester of SEMESTERS) {
+      // One SemesterOffering per (course, semester). Sections live in TimeSlot.
+      await SemesterOffering.findOrCreate({
+        where: { course_id: course.course_id, semester },
+        defaults: { course_id: course.course_id, semester },
+      });
+      totalOfferings++;
+
+      for (let s = 1; s <= numSections; s++) {
+        const sectionNumber = pad3(s);
+        const meetings = buildSectionMeetings();
+
+        for (const meeting of meetings) {
+          await TimeSlot.create({
+            course_id: course.course_id,
+            section_number: sectionNumber,
+            semester,
+            year: YEAR,
+            days: meeting.days,
+            time_range: meeting.time_range,
+          });
+          totalSlots++;
+        }
+      }
+    }
+  }
+
+  console.log(
+    `Offerings seeded: ${totalOfferings} semester offerings, ${totalSlots} time slots ` +
+    `across ${courses.length} courses (${SEMESTERS.join(', ')} ${YEAR}).`
+  );
+}
+
+// ── Prerequisite seed ─────────────────────────────────────────────────────────
+// Builds the Prerequisite table. Each entry says: "to take <course>, you must
+// first complete <prereq>". Multiple prereqs for the same course are AND'd.
+//
+// Source: https://catalog.odu.edu/courses/cs/ (ODU 2025-2026 catalog),
+// adapted to match the course codes/names in this prototype's catalog.
+// External prereqs (MATH, ENGL, ECE, etc.) are omitted for courses outside
+// this prototype's catalog; intra-MATH/PHYS sequencing is included.
+async function seedPrerequisites() {
+  const { Course, Prerequisite } = require('./models/index.js');
+
+  const existing = await Prerequisite.count();
+  if (existing > 0) {
+    console.log(`Prerequisites already seeded (${existing} edges). Skipping.`);
+    return;
+  }
+
+  // Pairs: [courseCode, prereqCourseCode] — to take <courseCode>, <prereqCode> is required.
+  const PREREQ_PAIRS = [
+    // ───────── Computer Science ─────────
+    // Foundation programming
+    ['CS 250',     'CS 150'],
+
+    // CS 252 (Unix) → most upper-division courses
+    ['CS 312',     'CS 252'],
+    ['CS 315',     'CS 252'],
+    ['CS 330',     'CS 252'],
+    ['CS 350',     'CS 252'],
+    ['CS 355',     'CS 252'],
+    ['CS 361',     'CS 252'],
+
+    // CS 250 (programming with C++) → courses that need real OOP
+    ['CS 330',     'CS 250'],
+    ['CS 361',     'CS 250'],
+
+    // CS 330 (OOP & Design) → senior-level dependent courses
+    ['CS 350',     'CS 330'],
+    ['CS 410/510', 'CS 330'],
+    ['CS 411W/511','CS 330'],
+    ['CS 411W/511','CS 350'],
+    ['CS 441',     'CS 330'],
+    ['CS 418',     'CS 330'],
+    ['CS 432',     'CS 330'],
+    ['CS 476',     'CS 330'],
+
+    // CS 361 (DSA) → algorithms-heavy courses
+    ['CS 450',     'CS 361'],
+    ['CS 462',     'CS 361'],
+    ['CS 463',     'CS 361'],
+    ['CS 467',     'CS 361'],
+    ['CS 486',     'CS 361'],
+    ['CS 488',     'CS 361'],
+
+    // CS 381 (Discrete) → theory courses
+    ['CS 390',     'CS 381'],
+    ['CS 431',     'CS 381'],
+
+    // CS 170 → Computer Architecture
+    ['CS 455',     'CS 170'],
+
+    // CS 312 (Web) → web-heavy upper courses
+    ['CS 432',     'CS 312'],
+    ['CS 487',     'CS 312'],
+
+    // Networks / security chain
+    ['CS 460',     'CS 355'],
+    ['CS 478',     'CS 355'],
+
+    // Senior project chain
+    ['CS 480',     'CS 411W/511'],
+    ['CS 481',     'CS 480'],
+
+    // ───────── Cybersecurity ─────────
+    ['CYSE 300',   'CYSE 200T'],
+    ['CYSE 301',   'CYSE 300'],
+    ['CYSE 302',   'CYSE 300'],
+    ['CYSE 400',   'CYSE 300'],
+    ['CYSE 401',   'CYSE 302'],
+    ['CYSE 402',   'CYSE 301'],
+    ['CYSE 480',   'CYSE 400'],
+    ['CYSE 481',   'CYSE 480'],
+
+    // ───────── Math & Physics sequencing ─────────
+    ['MATH 212',   'MATH 211'],
+    ['MATH 316',   'MATH 211'],
+    ['STAT 330',   'MATH 211'],
+    ['PHYS 232N',  'PHYS 231N'],
+
+    // ───────── English sequencing ─────────
+    ['ENGL 211C',  'ENGL 110C'],
+    ['ENGL 112L',  'ENGL 110C'],
+  ];
+
+  // Single batch lookup of all course rows we need.
+  const codes = new Set();
+  for (const [a, b] of PREREQ_PAIRS) { codes.add(a); codes.add(b); }
+  const courses = await Course.findAll({ where: { course_code: Array.from(codes) } });
+  const idByCode = new Map(courses.map(c => [c.course_code, c.course_id]));
+
+  let inserted = 0, skipped = 0;
+  for (const [code, prereqCode] of PREREQ_PAIRS) {
+    const courseId = idByCode.get(code);
+    const prereqId = idByCode.get(prereqCode);
+    if (!courseId || !prereqId || courseId === prereqId) {
+      skipped++;
+      continue;
+    }
+    await Prerequisite.create({
+      course_id: courseId,
+      prerequisite_course_id: prereqId,
+    });
+    inserted++;
+  }
+
+  console.log(
+    `Prerequisites seeded: ${inserted} edges` +
+    (skipped ? `, ${skipped} skipped (course not in catalog)` : '')
+  );
+}
+
 async function seedDemoPlans() {
   const { Course, Plan, PlannedCourse } = require('./models/index.js');
- 
-  
+
   const courseRows = await Course.findAll();
   const C = {};
   for (const c of courseRows) C[c.course_code] = c;
- 
-  
+
   const semesterStart = {
     Fall:   (year) => new Date(`${year}-08-01`),
     Spring: (year) => new Date(`${year}-01-01`),
     Summer: (year) => new Date(`${year}-05-15`),
     Winter: (year) => new Date(`${year}-12-15`),
   };
- 
-  
+
   async function createSemesterPlan(studentUserId, degreeProgram, semester, year, planStatus, courses) {
     const plan = await Plan.create({
       student_id: studentUserId,
@@ -275,7 +568,7 @@ async function seedDemoPlans() {
       status: planStatus,
       creation_date: semesterStart[semester]?.(year) ?? new Date(),
     });
- 
+
     const rows = courses
       .map(([code, courseStatus, grade]) => ({
         plan_id: plan.plan_id,
@@ -285,99 +578,91 @@ async function seedDemoPlans() {
         status: courseStatus,
         grade: grade ?? null,
       }))
-      .filter(row => row.course_id);  // skip unknown course codes silently
- 
+      .filter(row => row.course_id);
+
     if (rows.length) await PlannedCourse.bulkCreate(rows);
     return plan;
   }
- 
 
+  // ── Student1: halfway through Computer Science ───────────────────────────
+  // Goal: ~60 of 120 credits completed across 4 historical semesters with a
+  // realistic mix of CS + GenEd + Math (matches ODU BSCS plan of study).
+  // Showcases all four plan statuses: Historical, Approved, Pending, Draft.
   const student1 = await User.findOne({ where: { username: 'Student1' } });
   if (student1) {
-    // Freshman year
-    await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2023, 'Historical', [
-      ['CS 120G', 'Completed', 'A' ],
-      ['CS 150',  'Completed', 'A-'],
-      ['CS 170',  'Completed', 'B+'],
-      ['CS 252',  'Completed', 'A' ],
-      ['CS 115',  'Completed', 'A' ],
-    ]);
-
-    await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2024, 'Historical', [
-      ['CS 250',  'Completed', 'A' ],
-      ['CS 300T', 'Completed', 'B' ],
-      ['CS 312',  'Completed', 'A-'],
-      ['CS 222',  'Completed', 'A-'],
-      ['CS 315',  'Completed', 'A' ],
-    ]);
-
-
+    // ── Freshman Fall — 14 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2024, 'Historical', [
-      ['CS 330',  'Completed', 'B+'],
-      ['CS 350',  'Completed', 'A' ],
-      ['CS 381',  'Completed', 'A' ],
-      ['CS 355',  'Completed', 'B+'],
-      ['CS 460',  'Completed', 'A' ],
+      ['ENGL 110C', 'Completed', 'A-'],
+      ['MATH 211',  'Completed', 'B+'],   // Calc I
+      ['CS 150',    'Completed', 'A-'],   // Programming I
+      ['PSYC 201S', 'Completed', 'A' ],   // Human Behavior GenEd
     ]);
 
+    // ── Freshman Spring — 17 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2025, 'Historical', [
-      ['CS 361',      'Completed', 'A-'],
-      ['CS 390',      'Completed', 'B' ],
-      ['CS 410/510',  'Completed', 'A' ],
-      ['CS 450',      'Completed', 'A-'],
-      ['CS 455',      'Completed', 'B+'],
+      ['ENGL 211C', 'Completed', 'A' ],
+      ['MATH 212',  'Completed', 'B' ],   // Calc II
+      ['CS 170',    'Completed', 'B+'],   // Computer Architecture
+      ['CS 250',    'Completed', 'A' ],   // Programming with C++
+      ['CS 252',    'Completed', 'A-'],   // Unix for Programmers
     ]);
 
-    // Junior year
+    // ── Sophomore Fall — 16 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2025, 'Historical', [
-      ['CS 411W/511', 'Completed', 'A' ],
-      ['CS 462',      'Completed', 'A' ],
-      ['CS 463',      'Completed', 'B+'],
-      ['CS 480',      'Completed', 'A' ],
-      ['CS 418',      'Completed', 'A-'],
+      ['MATH 316',  'Completed', 'B+'],   // Linear Algebra
+      ['CS 330',    'Completed', 'B+'],   // OOP & Design
+      ['CS 121G',   'Completed', 'A' ],   // Information Literacy
+      ['COMM 101R', 'Completed', 'A-'],   // Oral Communication
+      ['PHYS 231N', 'Completed', 'B' ],   // Nature of Science I
     ]);
 
+    // ── Sophomore Spring — 16 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2026, 'Historical', [
-      ['CS 476', 'Completed', 'A' ],
-      ['CS 488', 'Completed', 'A' ],
-      ['CS 441', 'Completed', 'A' ],
-      ['CS 467', 'Completed', 'B+'],
-      ['CS 486', 'Completed', 'A' ],
+      ['STAT 330',  'Completed', 'A-'],   // Probability & Stats
+      ['CS 361',    'Completed', 'A-'],   // Data Structures
+      ['CS 381',    'Completed', 'A' ],   // Discrete Structures
+      ['HIST 100H', 'Completed', 'B+'],   // Interpreting the Past
+      ['PHYS 232N', 'Completed', 'B' ],   // Nature of Science II
     ]);
 
-
+    // ── Junior Fall (Approved) — current semester, in progress ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2026, 'Approved', [
-      ['CS 431', 'Enrolled', null],
-      ['CS 478', 'Enrolled', null],
-      ['CS 487', 'Enrolled', null],
-      ['CS 432', 'Enrolled', null],
-      ['CS 150', 'Planned',  null], 
+      ['CS 315',      'Enrolled', null],   // Database Systems
+      ['CS 350',      'Enrolled', null],   // Software Engineering
+      ['CS 355',      'Enrolled', null],   // Networks
+      ['ARTH 121A',   'Enrolled', null],   // Human Creativity GenEd
+      ['ENGL 112L',   'Enrolled', null],   // Literature GenEd
     ]);
 
-
+    // ── Junior Spring (Pending) — sitting in advisor queue ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2027, 'Pending', [
-      ['CS 463', 'Planned', null],
-      ['CS 480', 'Planned', null],
-      ['CS 488', 'Planned', null],
+      ['CS 390',    'Planned', null],   // Formal Languages
+      ['CS 410/510','Planned', null],   // AI
+      ['CS 411W/511','Planned', null],  // SE II (Writing Intensive)
+      ['PHIL 110P', 'Planned', null],   // Philosophy & Ethics
     ]);
 
-
+    // ── Senior Fall (Draft) — student still working on it ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2027, 'Draft', [
-      ['CS 481', 'Planned', null],
-      ['CS 467', 'Planned', null],
+      ['CS 480',    'Planned', null],   // Senior Project I
+      ['CS 450',    'Planned', null],   // Operating Systems
     ]);
-    console.log('Student1: seeded semester plans');
+
+    console.log('Student1: seeded 4 Historical + 1 Approved + 1 Pending + 1 Draft plans');
   }
 
+  // ── Student2: clean slate Cybersecurity freshman ─────────────────────────
+  // Goal: minimal data so we can demo "generate full degree plan" from scratch.
+  // The single Pending plan is what shows up in Advisor1's queue.
   const student2 = await User.findOne({ where: { username: 'Student2' } });
   if (student2) {
     await createSemesterPlan(student2.user_id, 'Cybersecurity', 'Fall', 2026, 'Pending', [
       ['CYSE 200T', 'Planned', null],
-      ['CYSE 300',  'Planned', null],
       ['CS 150',    'Planned', null],
-      ['CS 252',    'Planned', null],
+      ['ENGL 110C', 'Planned', null],
+      ['MATH 211',  'Planned', null],
     ]);
- 
+
     console.log('Student2: seeded 1 Pending plan for Fall 2026');
   }
 }
@@ -388,21 +673,59 @@ async function seedDemoFeedback() {
   const advisor1 = await User.findOne({ where: { username: 'Advisor1' } });
   const student1 = await User.findOne({ where: { username: 'Student1' } });
 
-  if (!advisor1 || !student1) return;
+  if (!advisor1) return;
 
-  const fall2026 = await Plan.findOne({
-    where: { student_id: student1.user_id, status: 'Approved' },
-  });
-
-  if (fall2026) {
-    await PlanFeedback.create({
-      plan_id: fall2026.plan_id,
-      advisor_id: advisor1.user_id,
-      message:
-        "Approved your final semester. The 16-credit load is on the heavier side — make sure CS 487 doesn't conflict with your CS 411W hours. Reach out if you need to drop CS 150.",
+  if (student1) {
+    const approved = await Plan.findOne({
+      where: { student_id: student1.user_id, status: 'Approved' },
     });
-    console.log('Advisor feedback seeded for Student1 Fall 2026');
+    if (approved) {
+      await PlanFeedback.create({
+        plan_id: approved.plan_id,
+        advisor_id: advisor1.user_id,
+        message:
+          "Approved. Strong junior-fall load — CS 315/350/355 together is heavy " +
+          "but you've got the prereqs for it. Keep ARTH and ENGL for lighter weeks. " +
+          "Plan to take CS 410/411W together in Spring; we'll talk capstone in March.",
+      });
+      console.log('Advisor feedback seeded for Student1 Fall 2026 (Approved)');
+    }
   }
+}
+
+async function seedStudent1Availability() {
+  const { StudentAvailability } = require('./models/index.js');
+
+  const student1 = await User.findOne({ where: { username: 'Student1' } });
+  if (!student1) return;
+
+  // Already seeded? Skip.
+  const existing = await StudentAvailability.count({
+    where: { student_id: student1.user_id },
+  });
+  if (existing > 0) {
+    console.log(`Student1 availability already seeded (${existing} rows). Skipping.`);
+    return;
+  }
+
+  // Student1 has a part-time job: works MWF mornings + TR afternoons.
+  // Available windows below are the times they are FREE for class.
+  // This intentionally conflicts with seeded MWF 08:00/09:00 and TR 14:00/15:30
+  // sections so the conflict detector has something to flag.
+  const slots = [
+    // Mon/Wed/Fri: free only after 1 PM (blocks all morning MWF sections)
+    { day: 'M', start_time: '13:00', end_time: '21:00' },
+    { day: 'W', start_time: '13:00', end_time: '21:00' },
+    { day: 'F', start_time: '13:00', end_time: '21:00' },
+    // Tue/Thu: free only in the morning (blocks afternoon TR sections)
+    { day: 'T', start_time: '08:00', end_time: '13:00' },
+    { day: 'R', start_time: '08:00', end_time: '13:00' },
+  ];
+
+  await StudentAvailability.bulkCreate(
+    slots.map(s => ({ student_id: student1.user_id, ...s }))
+  );
+  console.log(`Student1: seeded ${slots.length} availability windows`);
 }
 
 // ── Resource seed ─────────────────────────────────────────────────────────────
@@ -613,18 +936,21 @@ async function seedResources() {
 
 // Sync database and start server
 const PORT = process.env.PORT || 3000;
-sequelize.sync({ force: true }) // { force: true } to reset DB
-    .then(async() => {
-        console.log('Database synced.');
+sequelize.sync({ force: true })
+  .then(async () => {
+    console.log('Database synced.');
 
-        await seedAdmin();
-        await seedDemoUsers();
-        await seedDemoPrograms();
-        await seedDemoCourses();
-        await assignDemoAdvisors();
-        await seedDemoPlans(); 
-        await seedDemoFeedback();
-        await seedResources();
-        app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    })
-    .catch(err => console.error('DB connection error:', err));
+    await seedAdmin();
+    await seedDemoUsers();
+    await seedDemoCourses();
+    await seedDemoPrograms();
+    await seedOfferings();
+    await seedPrerequisites();
+    await assignDemoAdvisors();
+    await seedDemoPlans();
+    await seedDemoFeedback();
+    await seedStudent1Availability();
+    await seedResources();
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch(err => console.error('DB connection error:', err));
