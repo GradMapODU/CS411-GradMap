@@ -22,6 +22,7 @@ const Resource = sequelize.define('Resource', {
 }, { timestamps: false, tableName: 'resources' });
 
 
+
 global._ResourceModel = Resource;
 
 app.use(express.json());
@@ -173,11 +174,8 @@ async function seedDemoPrograms() {
     { name: 'Cybersecurity', total_credits_required: 120 },
   ];
 
-  // Foundation CS courses to cross-list into Cybersecurity.
   const CS_FOUNDATION_FOR_CYBER = ['CS 150', 'CS 170', 'CS 250', 'CS 350', 'CS 381'];
 
-  // Departments whose courses should be linked to *every* program
-  // (university-wide GenEd + math/stat that all majors need).
   const SHARED_DEPARTMENTS = ['Mathematics', 'English', 'Communication',
                               'Philosophy', 'History', 'Psychology',
                               'Art', 'Physics'];
@@ -188,15 +186,13 @@ async function seedDemoPrograms() {
       defaults: p,
     });
 
-    // 1. Major-department courses.
     const majorCourses = await Course.findAll({ where: { department: p.name } });
 
-    // 2. Shared GenEd + math courses.
+
     const sharedCourses = await Course.findAll({
       where: { department: SHARED_DEPARTMENTS },
     });
 
-    // 3. Cybersecurity also gets CS foundation.
     let foundationCourses = [];
     if (p.name === 'Cybersecurity') {
       foundationCourses = await Course.findAll({
@@ -230,7 +226,7 @@ async function seedDemoCourses() {
   const { Course } = require('./models/index.js');
 
   const courses = [
-    // ---------- Computer Science ----------
+
     { course_code: 'CS 112',     course_name: 'Information Literacy for Former Engineering Majors',     credits: 1, category: 'General',  department: 'Computer Science', course_description: 'Builds research, evaluation, and digital information skills with emphasis on security, policy, and ethical use of information.' },
     { course_code: 'CS 115',     course_name: 'Introduction to Computer Science with Python',           credits: 1, category: 'Core',     department: 'Computer Science', course_description: 'Introduces computer science as a discipline and career path while using Python to solve beginner programming problems.' },
     { course_code: 'CS 120G',    course_name: 'Introduction to Information Literacy and Research',      credits: 3, category: 'General',  department: 'Computer Science', course_description: 'Covers finding, evaluating, managing, and presenting information using collaborative and productivity tools.' },
@@ -274,7 +270,7 @@ async function seedDemoCourses() {
     { course_code: 'CS 487',     course_name: 'Blockchain and Decentralized Applications',              credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Explores blockchain technology, smart contracts, consensus mechanisms, and decentralized app development.' },
     { course_code: 'CS 488',     course_name: 'Cloud Computing',                                        credits: 3, category: 'Elective', department: 'Computer Science', course_description: 'Covers cloud service models, virtualization, containers, Kubernetes, and cloud-native application design.' },
 
-    // ---------- Cybersecurity ----------
+
     { course_code: 'CYSE 200T',  course_name: 'Introduction to Cybersecurity',                          credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Introduces the cybersecurity landscape including threats, defenses, policy, ethics, and career paths.' },
     { course_code: 'CYSE 300',   course_name: 'Cyber Foundations',                                      credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Covers core cybersecurity principles: CIA triad, cryptography, access control, and risk management.' },
     { course_code: 'CYSE 301',   course_name: 'Ethical Hacking',                                        credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Teaches penetration testing methodology, reconnaissance, exploitation, and responsible disclosure practices.' },
@@ -286,25 +282,22 @@ async function seedDemoCourses() {
     { course_code: 'CYSE 480',   course_name: 'Cybersecurity Capstone I',                               credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'First part of the capstone experience; students develop a security-focused project proposal and prototype.' },
     { course_code: 'CYSE 481',   course_name: 'Cybersecurity Capstone II',                              credits: 3, category: 'Core',     department: 'Cybersecurity', course_description: 'Completion and defense of the capstone project begun in CYSE 480.' },
 
-    // ---------- Mathematics & Statistics (required for CS/Cyber major) ----------
     { course_code: 'MATH 211',   course_name: 'Calculus I',                                             credits: 4, category: 'Core',     department: 'Mathematics', course_description: 'Limits, continuity, derivatives, and integrals of single-variable functions with applications to science and engineering.' },
     { course_code: 'MATH 212',   course_name: 'Calculus II',                                            credits: 4, category: 'Core',     department: 'Mathematics', course_description: 'Techniques and applications of integration, sequences, series, and an introduction to differential equations.' },
     { course_code: 'MATH 316',   course_name: 'Introductory Linear Algebra',                           credits: 3, category: 'Core',     department: 'Mathematics', course_description: 'Vector spaces, matrices, linear transformations, eigenvalues, and applications used throughout computer science.' },
     { course_code: 'STAT 330',   course_name: 'Introduction to Probability and Statistics',            credits: 3, category: 'Core',     department: 'Mathematics', course_description: 'Probability theory, common distributions, statistical inference, hypothesis testing, and regression for scientists.' },
 
-    // ---------- Written & Oral Communication (GenEd) ----------
     { course_code: 'ENGL 110C',  course_name: 'English Composition',                                   credits: 3, category: 'General',  department: 'English',       course_description: 'Foundational composition course covering academic argument, source evaluation, drafting, and revision. Grade of C or better required for graduation.' },
     { course_code: 'ENGL 211C',  course_name: 'Advanced Composition',                                  credits: 3, category: 'General',  department: 'English',       course_description: 'Continues academic writing with longer research-based assignments, source synthesis, and audience-aware rhetoric.' },
     { course_code: 'COMM 101R',  course_name: 'Public Speaking',                                       credits: 3, category: 'General',  department: 'Communication', course_description: 'Theory and practice of public speaking: audience analysis, argument structure, delivery, and informative/persuasive presentations.' },
 
-    // ---------- Other GenEd Categories ----------
+
     { course_code: 'PHIL 110P',  course_name: 'Philosophy and Ethics',                                 credits: 3, category: 'General',  department: 'Philosophy',    course_description: 'Introduction to ethical theory and applied ethics, examining moral reasoning across personal, professional, and technological contexts.' },
     { course_code: 'HIST 100H',  course_name: 'Interpreting the Past: Western Civilization',           credits: 3, category: 'General',  department: 'History',       course_description: 'Survey of major political, social, and cultural developments in Western civilization with attention to historical methodology.' },
     { course_code: 'PSYC 201S',  course_name: 'Introduction to Psychology',                            credits: 3, category: 'General',  department: 'Psychology',    course_description: 'Survey of human behavior, cognition, development, and social processes. Satisfies the Human Behavior General Education category.' },
     { course_code: 'ARTH 121A',  course_name: 'Human Creativity in the Visual Arts',                   credits: 3, category: 'General',  department: 'Art',           course_description: 'Examines the visual arts as a form of human creativity through historical and cross-cultural perspectives.' },
     { course_code: 'ENGL 112L',  course_name: 'Introduction to Literature',                            credits: 3, category: 'General',  department: 'English',       course_description: 'Reading and interpretation of fiction, poetry, and drama with attention to genre conventions and literary criticism.' },
 
-    // ---------- Nature of Science (8-credit sequence) ----------
     { course_code: 'PHYS 231N',  course_name: 'University Physics I',                                  credits: 4, category: 'General',  department: 'Physics',       course_description: 'Calculus-based mechanics: kinematics, Newton\'s laws, energy, momentum, rotation, and oscillations. First in the Nature of Science sequence.' },
     { course_code: 'PHYS 232N',  course_name: 'University Physics II',                                 credits: 4, category: 'General',  department: 'Physics',       course_description: 'Calculus-based electromagnetism, waves, and optics. Second in the Nature of Science sequence.' },
   ];
@@ -318,11 +311,10 @@ async function seedDemoCourses() {
   console.log('Demo courses seeded.');
 }
 
-// ── Course offerings & time slots ─────────────────────────────────────────────
 async function seedOfferings() {
   const { Course, TimeSlot, SemesterOffering } = require('./models/index.js');
 
-  // Already seeded? Skip. (Safe across restarts that don't force-reset the DB.)
+
   const existingSlots = await TimeSlot.count();
   if (existingSlots > 0) {
     console.log(`Offerings already seeded (${existingSlots} time slots). Skipping.`);
@@ -332,7 +324,6 @@ async function seedOfferings() {
   const SEMESTERS = ['Fall', 'Spring'];
   const YEAR = new Date().getFullYear();
 
-  // Meeting pattern pools.
   const MWF_PATTERNS = [
     { days: 'MWF', time_range: '08:00-08:50' },
     { days: 'MWF', time_range: '09:00-09:50' },
@@ -427,14 +418,6 @@ async function seedOfferings() {
   );
 }
 
-// ── Prerequisite seed ─────────────────────────────────────────────────────────
-// Builds the Prerequisite table. Each entry says: "to take <course>, you must
-// first complete <prereq>". Multiple prereqs for the same course are AND'd.
-//
-// Source: https://catalog.odu.edu/courses/cs/ (ODU 2025-2026 catalog),
-// adapted to match the course codes/names in this prototype's catalog.
-// External prereqs (MATH, ENGL, ECE, etc.) are omitted for courses outside
-// this prototype's catalog; intra-MATH/PHYS sequencing is included.
 async function seedPrerequisites() {
   const { Course, Prerequisite } = require('./models/index.js');
 
@@ -444,13 +427,11 @@ async function seedPrerequisites() {
     return;
   }
 
-  // Pairs: [courseCode, prereqCourseCode] — to take <courseCode>, <prereqCode> is required.
   const PREREQ_PAIRS = [
-    // ───────── Computer Science ─────────
-    // Foundation programming
+
     ['CS 250',     'CS 150'],
 
-    // CS 252 (Unix) → most upper-division courses
+
     ['CS 312',     'CS 252'],
     ['CS 315',     'CS 252'],
     ['CS 330',     'CS 252'],
@@ -458,11 +439,11 @@ async function seedPrerequisites() {
     ['CS 355',     'CS 252'],
     ['CS 361',     'CS 252'],
 
-    // CS 250 (programming with C++) → courses that need real OOP
+
     ['CS 330',     'CS 250'],
     ['CS 361',     'CS 250'],
 
-    // CS 330 (OOP & Design) → senior-level dependent courses
+
     ['CS 350',     'CS 330'],
     ['CS 410/510', 'CS 330'],
     ['CS 411W/511','CS 330'],
@@ -472,7 +453,7 @@ async function seedPrerequisites() {
     ['CS 432',     'CS 330'],
     ['CS 476',     'CS 330'],
 
-    // CS 361 (DSA) → algorithms-heavy courses
+
     ['CS 450',     'CS 361'],
     ['CS 462',     'CS 361'],
     ['CS 463',     'CS 361'],
@@ -480,26 +461,26 @@ async function seedPrerequisites() {
     ['CS 486',     'CS 361'],
     ['CS 488',     'CS 361'],
 
-    // CS 381 (Discrete) → theory courses
+
     ['CS 390',     'CS 381'],
     ['CS 431',     'CS 381'],
 
-    // CS 170 → Computer Architecture
+
     ['CS 455',     'CS 170'],
 
-    // CS 312 (Web) → web-heavy upper courses
+
     ['CS 432',     'CS 312'],
     ['CS 487',     'CS 312'],
 
-    // Networks / security chain
+
     ['CS 460',     'CS 355'],
     ['CS 478',     'CS 355'],
 
-    // Senior project chain
+
     ['CS 480',     'CS 411W/511'],
     ['CS 481',     'CS 480'],
 
-    // ───────── Cybersecurity ─────────
+
     ['CYSE 300',   'CYSE 200T'],
     ['CYSE 301',   'CYSE 300'],
     ['CYSE 302',   'CYSE 300'],
@@ -509,18 +490,18 @@ async function seedPrerequisites() {
     ['CYSE 480',   'CYSE 400'],
     ['CYSE 481',   'CYSE 480'],
 
-    // ───────── Math & Physics sequencing ─────────
+
     ['MATH 212',   'MATH 211'],
     ['MATH 316',   'MATH 211'],
     ['STAT 330',   'MATH 211'],
     ['PHYS 232N',  'PHYS 231N'],
 
-    // ───────── English sequencing ─────────
+
     ['ENGL 211C',  'ENGL 110C'],
     ['ENGL 112L',  'ENGL 110C'],
   ];
 
-  // Single batch lookup of all course rows we need.
+
   const codes = new Set();
   for (const [a, b] of PREREQ_PAIRS) { codes.add(a); codes.add(b); }
   const courses = await Course.findAll({ where: { course_code: Array.from(codes) } });
@@ -584,76 +565,64 @@ async function seedDemoPlans() {
     return plan;
   }
 
-  // ── Student1: halfway through Computer Science ───────────────────────────
-  // Goal: ~60 of 120 credits completed across 4 historical semesters with a
-  // realistic mix of CS + GenEd + Math (matches ODU BSCS plan of study).
-  // Showcases all four plan statuses: Historical, Approved, Pending, Draft.
   const student1 = await User.findOne({ where: { username: 'Student1' } });
   if (student1) {
-    // ── Freshman Fall — 14 cr ──
+
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2024, 'Historical', [
       ['ENGL 110C', 'Completed', 'A-'],
-      ['MATH 211',  'Completed', 'B+'],   // Calc I
-      ['CS 150',    'Completed', 'A-'],   // Programming I
-      ['PSYC 201S', 'Completed', 'A' ],   // Human Behavior GenEd
+      ['MATH 211',  'Completed', 'B+'],   
+      ['CS 150',    'Completed', 'A-'],   
+      ['PSYC 201S', 'Completed', 'A' ],   
     ]);
 
-    // ── Freshman Spring — 17 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2025, 'Historical', [
       ['ENGL 211C', 'Completed', 'A' ],
-      ['MATH 212',  'Completed', 'B' ],   // Calc II
-      ['CS 170',    'Completed', 'B+'],   // Computer Architecture
-      ['CS 250',    'Completed', 'A' ],   // Programming with C++
-      ['CS 252',    'Completed', 'A-'],   // Unix for Programmers
+      ['MATH 212',  'Completed', 'B' ],   
+      ['CS 170',    'Completed', 'B+'],   
+      ['CS 250',    'Completed', 'A' ],   
+      ['CS 252',    'Completed', 'A-'],   
     ]);
 
-    // ── Sophomore Fall — 16 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2025, 'Historical', [
-      ['MATH 316',  'Completed', 'B+'],   // Linear Algebra
-      ['CS 330',    'Completed', 'B+'],   // OOP & Design
-      ['CS 121G',   'Completed', 'A' ],   // Information Literacy
-      ['COMM 101R', 'Completed', 'A-'],   // Oral Communication
-      ['PHYS 231N', 'Completed', 'B' ],   // Nature of Science I
+      ['MATH 316',  'Completed', 'B+'],   
+      ['CS 330',    'Completed', 'B+'],   
+      ['CS 121G',   'Completed', 'A' ],   
+      ['COMM 101R', 'Completed', 'A-'],   
+      ['PHYS 231N', 'Completed', 'B' ],   
     ]);
 
-    // ── Sophomore Spring — 16 cr ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2026, 'Historical', [
-      ['STAT 330',  'Completed', 'A-'],   // Probability & Stats
-      ['CS 361',    'Completed', 'A-'],   // Data Structures
-      ['CS 381',    'Completed', 'A' ],   // Discrete Structures
-      ['HIST 100H', 'Completed', 'B+'],   // Interpreting the Past
-      ['PHYS 232N', 'Completed', 'B' ],   // Nature of Science II
+      ['STAT 330',  'Completed', 'A-'],   
+      ['CS 361',    'Completed', 'A-'],   
+      ['CS 381',    'Completed', 'A' ],   
+      ['HIST 100H', 'Completed', 'B+'],   
+      ['PHYS 232N', 'Completed', 'B' ],   
     ]);
 
-    // ── Junior Fall (Approved) — current semester, in progress ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2026, 'Approved', [
-      ['CS 315',      'Enrolled', null],   // Database Systems
-      ['CS 350',      'Enrolled', null],   // Software Engineering
-      ['CS 355',      'Enrolled', null],   // Networks
-      ['ARTH 121A',   'Enrolled', null],   // Human Creativity GenEd
-      ['ENGL 112L',   'Enrolled', null],   // Literature GenEd
+      ['CS 315',      'Enrolled', null],   
+      ['CS 350',      'Enrolled', null],   
+      ['CS 355',      'Enrolled', null],   
+      ['ARTH 121A',   'Enrolled', null],   
+      ['ENGL 112L',   'Enrolled', null],  
     ]);
 
-    // ── Junior Spring (Pending) — sitting in advisor queue ──
+
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Spring', 2027, 'Pending', [
-      ['CS 390',    'Planned', null],   // Formal Languages
-      ['CS 410/510','Planned', null],   // AI
-      ['CS 411W/511','Planned', null],  // SE II (Writing Intensive)
-      ['PHIL 110P', 'Planned', null],   // Philosophy & Ethics
+      ['CS 390',    'Planned', null],   
+      ['CS 410/510','Planned', null],   
+      ['CS 411W/511','Planned', null], 
+      ['PHIL 110P', 'Planned', null],   
     ]);
 
-    // ── Senior Fall (Draft) — student still working on it ──
     await createSemesterPlan(student1.user_id, 'Computer Science', 'Fall', 2027, 'Draft', [
-      ['CS 480',    'Planned', null],   // Senior Project I
-      ['CS 450',    'Planned', null],   // Operating Systems
+      ['CS 480',    'Planned', null],  
+      ['CS 450',    'Planned', null],   
     ]);
 
     console.log('Student1: seeded 4 Historical + 1 Approved + 1 Pending + 1 Draft plans');
   }
 
-  // ── Student2: clean slate Cybersecurity freshman ─────────────────────────
-  // Goal: minimal data so we can demo "generate full degree plan" from scratch.
-  // The single Pending plan is what shows up in Advisor1's queue.
   const student2 = await User.findOne({ where: { username: 'Student2' } });
   if (student2) {
     await createSemesterPlan(student2.user_id, 'Cybersecurity', 'Fall', 2026, 'Pending', [
@@ -699,7 +668,6 @@ async function seedStudent1Availability() {
   const student1 = await User.findOne({ where: { username: 'Student1' } });
   if (!student1) return;
 
-  // Already seeded? Skip.
   const existing = await StudentAvailability.count({
     where: { student_id: student1.user_id },
   });
@@ -708,16 +676,11 @@ async function seedStudent1Availability() {
     return;
   }
 
-  // Student1 has a part-time job: works MWF mornings + TR afternoons.
-  // Available windows below are the times they are FREE for class.
-  // This intentionally conflicts with seeded MWF 08:00/09:00 and TR 14:00/15:30
-  // sections so the conflict detector has something to flag.
   const slots = [
-    // Mon/Wed/Fri: free only after 1 PM (blocks all morning MWF sections)
     { day: 'M', start_time: '13:00', end_time: '21:00' },
     { day: 'W', start_time: '13:00', end_time: '21:00' },
     { day: 'F', start_time: '13:00', end_time: '21:00' },
-    // Tue/Thu: free only in the morning (blocks afternoon TR sections)
+
     { day: 'T', start_time: '08:00', end_time: '13:00' },
     { day: 'R', start_time: '08:00', end_time: '13:00' },
   ];
@@ -728,13 +691,13 @@ async function seedStudent1Availability() {
   console.log(`Student1: seeded ${slots.length} availability windows`);
 }
 
-// ── Resource seed ─────────────────────────────────────────────────────────────
+
 async function seedResources() {
   const count = await Resource.count();
   if (count > 0) return; // already seeded
 
   const resources = [
-    // Registration
+
     {
       title: 'ODU Homepage',
       url: 'https://www.odu.edu',
@@ -815,7 +778,6 @@ async function seedResources() {
       icon: '🔁',
     },
 
-    // Student Services
     {
       title: 'Student Affairs',
       url: 'https://www.odu.edu/virginia-health-sciences/about-us/administrative-offices/student-affairs',

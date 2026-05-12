@@ -1449,3 +1449,60 @@ small{
     gap:4px;
   }
 }
+/* =========================================================
+   GradPlans - Degree Requirements: status sub-groups
+   (Append to App.css)
+========================================================= */
+
+.reqGroup{
+  margin: 6px 0 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+
+.reqGroup__header{
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.reqGroup--notCompleted{
+  border-color: rgba(255,77,77,.25);
+  background: rgba(255,77,77,.05);
+}
+.reqGroup--notCompleted .reqGroup__header{ color: #ff9b9b; }
+
+.reqGroup--planned{
+  border-color: rgba(245,197,66,.30);
+  background: rgba(245,197,66,.06);
+}
+.reqGroup--planned .reqGroup__header{ color: #ffe08a; }
+
+.reqGroup--completed{
+  border-color: rgba(46,204,113,.30);
+  background: rgba(46,204,113,.06);
+}
+.reqGroup--completed .reqGroup__header{ color: #7ee2a8; }
+
+.reqGroup .reqSection__list{
+  margin: 0;
+  padding-left: 18px;
+}
+
+.reqGroup .reqSection__list li{
+  font-size: .88rem;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.reqItem__label{
+  
+}
+
+.reqItem__via{
+  font-size: .82rem;
+}

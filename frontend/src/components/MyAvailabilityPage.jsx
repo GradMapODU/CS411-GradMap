@@ -2,12 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import { getAvailability, saveAvailability } from "@api/students.js";
 
 const DAYS = [
-  { id: "mon", label: "Mon" },
-  { id: "tue", label: "Tue" },
-  { id: "wed", label: "Wed" },
-  { id: "thu", label: "Thu" },
-  { id: "fri", label: "Fri" },
+  { id: "mon", label: "Mon", backend: "M" },
+  { id: "tue", label: "Tue", backend: "T" },
+  { id: "wed", label: "Wed", backend: "W" },
+  { id: "thu", label: "Thu", backend: "R" },
+  { id: "fri", label: "Fri", backend: "F" },
 ];
+
+
+const BACKEND_TO_DAY_ID = DAYS.reduce((acc, d) => {
+  acc[d.backend] = d.id;
+  return acc;
+}, {});
+
+
+const DAY_ID_TO_BACKEND = DAYS.reduce((acc, d) => {
+  acc[d.id] = d.backend;
+  return acc;
+}, {});
 
 const HOUR_OPTIONS = [
   "6:00 AM",
@@ -30,7 +42,38 @@ const HOUR_OPTIONS = [
 
 const TIME_OPTIONS = [...HOUR_OPTIONS];
 
-const TERM_OPTIONS = ["Spring 2026", "Summer 2026", "Fall 2026", "Winter 2026"];
+
+const TERM_SEMESTERS = ["Spring", "Summer", "Fall"];
+const TERM_YEARS = [2026, 2027, 2028];
+const TERM_OPTIONS = TERM_YEARS.flatMap((y) =>
+  TERM_SEMESTERS.map((s) => `${s} ${y}`)
+);
+
+
+function backend24hToLabel(hhmm) {
+  if (!hhmm || typeof hhmm !== "string") return null;
+  const [hStr] = hhmm.split(":");
+  const h = Number(hStr);
+  if (Number.isNaN(h)) return null;
+
+  const ampm = h >= 12 ? "PM" : "AM";
+  let display = h % 12;
+  if (display === 0) display = 12;
+  return `${display}:00 ${ampm}`;
+}
+
+
+function labelToBackend24h(label) {
+  if (!label || typeof label !== "string") return null;
+  const match = label.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return null;
+  let h = Number(match[1]);
+  const m = Number(match[2]);
+  const ampm = match[3].toUpperCase();
+  if (ampm === "PM" && h !== 12) h += 12;
+  if (ampm === "AM" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
 
 function timeIndex(t) {
   return TIME_OPTIONS.indexOf(t);
@@ -44,14 +87,82 @@ function createEmptyWeeklyHours() {
   return { mon: [], tue: [], wed: [], thu: [], fri: [] };
 }
 
-function normalizeWeeklyHours(weeklyHours) {
-  return {
-    mon: Array.isArray(weeklyHours?.mon) ? weeklyHours.mon : [],
-    tue: Array.isArray(weeklyHours?.tue) ? weeklyHours.tue : [],
-    wed: Array.isArray(weeklyHours?.wed) ? weeklyHours.wed : [],
-    thu: Array.isArray(weeklyHours?.thu) ? weeklyHours.thu : [],
-    fri: Array.isArray(weeklyHours?.fri) ? weeklyHours.fri : [],
-  };
+function rowsToWeeklyHours(rows) {
+  const weekly = createEmptyWeeklyHours();
+  if (!Array.isArray(rows)) return weekly;
+
+  function parseHour(hhmm) {
+    if (!hhmm || typeof hhmm !== "string") return NaN;
+    const h = Number(hhmm.split(":")[0]);
+    return Number.isNaN(h) ? NaN : h;
+  }
+
+  const FIRST_HOUR = 6;
+  const LAST_HOUR_EXCLUSIVE = FIRST_HOUR + HOUR_OPTIONS.length;
+
+  for (const row of rows) {
+    const dayId = BACKEND_TO_DAY_ID[row.day];
+    if (!dayId) continue;
+
+    const startHour = parseHour(row.start_time);
+    const endHour = parseHour(row.end_time);
+    if (Number.isNaN(startHour) || Number.isNaN(endHour)) continue;
+
+    const fromIdx = Math.max(0, startHour - FIRST_HOUR);
+    const toIdx = Math.min(HOUR_OPTIONS.length, endHour - FIRST_HOUR);
+    if (toIdx <= fromIdx) continue;
+
+    const set = new Set(weekly[dayId]);
+    for (let i = fromIdx; i < toIdx; i++) {
+      set.add(HOUR_OPTIONS[i]);
+    }
+    weekly[dayId] = HOUR_OPTIONS.filter((h) => set.has(h));
+  }
+
+  return weekly;
+}
+
+function weeklyHoursToRows(weeklyHours) {
+  const rows = [];
+
+  function startOf(i) {
+    return labelToBackend24h(HOUR_OPTIONS[i]);
+  }
+  function endOf(i) {
+    if (i + 1 < HOUR_OPTIONS.length) return labelToBackend24h(HOUR_OPTIONS[i + 1]);
+    return "22:00";
+  }
+
+  for (const d of DAYS) {
+    const selected = new Set(weeklyHours[d.id] || []);
+
+    let runStart = -1; 
+    for (let i = 0; i < HOUR_OPTIONS.length; i++) {
+      const isOn = selected.has(HOUR_OPTIONS[i]);
+
+      if (isOn && runStart === -1) {
+        runStart = i;
+      } else if (!isOn && runStart !== -1) {
+
+        rows.push({
+          day: DAY_ID_TO_BACKEND[d.id],
+          start_time: startOf(runStart),
+          end_time: endOf(i - 1),
+        });
+        runStart = -1;
+      }
+    }
+
+    if (runStart !== -1) {
+      rows.push({
+        day: DAY_ID_TO_BACKEND[d.id],
+        start_time: startOf(runStart),
+        end_time: endOf(HOUR_OPTIONS.length - 1),
+      });
+    }
+  }
+
+  return rows;
 }
 
 function isHourWithinBlock(hour, block) {
@@ -61,7 +172,6 @@ function isHourWithinBlock(hour, block) {
 
   if (hourIdx === -1 || startIdx === -1 || endIdx === -1) return false;
 
-  // inclusive start, exclusive end
   return hourIdx >= startIdx && hourIdx < endIdx;
 }
 
@@ -81,7 +191,27 @@ export default function MyAvailabilityPage({ student, token }) {
   const [newEnd, setNewEnd] = useState("3:00 PM");
   const [newRepeats, setNewRepeats] = useState("Weekly");
 
-  
+  async function fetchAndApplyAvailability() {
+    const data = await getAvailability(token);
+
+    let weekly;
+    if (Array.isArray(data)) {
+      weekly = rowsToWeeklyHours(data);
+    } else if (data && typeof data === "object" && data.weeklyHours) {
+      weekly = {
+        mon: Array.isArray(data.weeklyHours.mon) ? data.weeklyHours.mon : [],
+        tue: Array.isArray(data.weeklyHours.tue) ? data.weeklyHours.tue : [],
+        wed: Array.isArray(data.weeklyHours.wed) ? data.weeklyHours.wed : [],
+        thu: Array.isArray(data.weeklyHours.thu) ? data.weeklyHours.thu : [],
+        fri: Array.isArray(data.weeklyHours.fri) ? data.weeklyHours.fri : [],
+      };
+    } else {
+      weekly = createEmptyWeeklyHours();
+    }
+
+    setWeeklyHours(weekly);
+  }
+
   useEffect(() => {
     async function load() {
       if (!token) {
@@ -92,8 +222,7 @@ export default function MyAvailabilityPage({ student, token }) {
       try {
         setLoading(true);
         setError(null);
-        const data = await getAvailability(token);
-        setWeeklyHours(normalizeWeeklyHours(data?.weeklyHours));
+        await fetchAndApplyAvailability();
       } catch (err) {
         console.error("Failed to load availability:", err);
         setError("Failed to load availability. Using defaults.");
@@ -103,6 +232,7 @@ export default function MyAvailabilityPage({ student, token }) {
       }
     }
     load();
+
   }, [token]);
 
   const selectedDayHours = useMemo(() => {
@@ -120,7 +250,7 @@ export default function MyAvailabilityPage({ student, token }) {
         [dayId]: HOUR_OPTIONS.filter((h) => current.has(h)),
       };
     });
-    
+
     setSaveMsg(null);
   }
 
@@ -132,7 +262,6 @@ export default function MyAvailabilityPage({ student, token }) {
     setSaveMsg(null);
   }
 
-  
   async function handleSaveAvailability() {
     if (!token) {
       alert("You must be logged in to save availability.");
@@ -144,9 +273,12 @@ export default function MyAvailabilityPage({ student, token }) {
       setSaveMsg(null);
       setError(null);
 
-      await saveAvailability(token, { weeklyHours });
+      const rows = weeklyHoursToRows(weeklyHours);
+      await saveAvailability(token, rows);
 
-      setSaveMsg("Availability saved successfully!");
+      await fetchAndApplyAvailability();
+
+      setSaveMsg(`Availability saved successfully for ${term}!`);
     } catch (err) {
       console.error("Failed to save availability:", err);
       setError(`Failed to save: ${err.message}`);
@@ -223,7 +355,6 @@ export default function MyAvailabilityPage({ student, token }) {
     });
   }, [weeklyHours, blocks]);
 
-  
   if (loading) {
     return (
       <section className="card">
@@ -245,14 +376,12 @@ export default function MyAvailabilityPage({ student, token }) {
         Select a term, choose a day, and toggle the hours you are free for classes.
       </p>
 
-      
       {error && (
         <div className="panel" style={{ borderLeft: "4px solid #e53e3e", marginBottom: 12 }}>
           <p style={{ color: "#e53e3e", margin: 0 }}>⚠️ {error}</p>
         </div>
       )}
 
-      
       {saveMsg && (
         <div className="panel" style={{ borderLeft: "4px solid #38a169", marginBottom: 12 }}>
           <p style={{ color: "#38a169", margin: 0 }}>✓ {saveMsg}</p>

@@ -86,12 +86,6 @@ function getUpcomingSemesters(count = 4) {
   return results;
 }
 
-// Group skip reasons by severity. Used by both the failure path (showing
-// blocker reasons in red) and the success-with-warnings path (showing prereq
-// warnings in yellow alongside a created plan).
-//
-// Returns: { blockers: "3× No sections offered...; 1× ...", warnings: "..." }
-// Either field can be empty string if there's nothing in that bucket.
 function summarizeSkipped(skipped) {
   const list = Array.isArray(skipped) ? skipped : [];
   const blockerCounts = new Map();
@@ -108,38 +102,232 @@ function summarizeSkipped(skipped) {
   return { blockers: fmt(blockerCounts), warnings: fmt(warningCounts) };
 }
 
-// Build a human-readable failure message from a generateSemester response
-// where plan_id is null (no plan was created).
 function buildFailureSummary(result, term) {
   const baseMsg = result?.message || `No plan created for ${term}.`;
   const { blockers } = summarizeSkipped(result?.skipped);
   return blockers ? `${term}: ${baseMsg} (${blockers})` : `${term}: ${baseMsg}`;
 }
 
-// Build a human-readable warnings message from a generateSemester response
-// where the plan WAS created but has prereq/other soft warnings.
 function buildWarningSummary(result, term) {
   const { warnings } = summarizeSkipped(result?.skipped);
   return warnings ? `${term}: ${warnings}` : "";
 }
 
 
-function RequirementSection({ title, items, emptyText }) {
-  const list = Array.isArray(items) ? items : [];
-  return (
-    <div className="reqSection">
-      <div className="reqSection__title">{title}</div>
-      {list.length > 0 ? (
-        <ul className="reqSection__list">
-          {list.map((item, i) => (
-            <li key={`${title}-${i}`}>{item}</li>
-          ))}
-        </ul>
-      ) : (
+function normalizeCodeKey(raw) {
+  return String(raw || "").replace(/\s+/g, " ").trim().toUpperCase();
+}
+
+
+function buildCourseStatusMap(plans, completedCourses) {
+  const rank = { completed: 3, enrolled: 2, "in progress": 2, planned: 1 };
+  const map = new Map();
+
+  const upsert = (rawCode, status, title) => {
+    const code = normalizeCodeKey(rawCode);
+    if (!code) return;
+    const incomingRank = rank[status.toLowerCase()] ?? 0;
+    const existing = map.get(code);
+    const existingRank = existing ? rank[existing.status.toLowerCase()] ?? 0 : -1;
+    if (incomingRank >= existingRank) {
+      map.set(code, { code, title: title || existing?.title || "", status });
+    }
+  };
+
+  for (const plan of Array.isArray(plans) ? plans : []) {
+    for (const course of Array.isArray(plan?.courses) ? plan.courses : []) {
+      upsert(course?.code, normalizeStatus(course?.status), course?.title);
+    }
+  }
+
+  for (const code of Array.isArray(completedCourses) ? completedCourses : []) {
+    upsert(code, "Completed");
+  }
+
+  return map;
+}
+
+function categorizeRequirement(req) {
+  const type = String(req?.requirement_type || req?.type || "").toLowerCase();
+  const code = String(req?.course_code || req?.code || "").toUpperCase();
+
+
+  if (/^[A-Z]+\s*4\d{2}W$/.test(code) || /capstone/i.test(req?.course_name || "")) {
+    return "capstone";
+  }
+
+  if (type === "general") return "generalEducation";
+  if (type === "core") return "majorCore";
+  if (type === "elective") return "electives";
+
+  return null;
+}
+function statusForRequirement(req, courseStatusMap) {
+  const raw = String(req?.course_code || req?.code || "");
+  if (!raw) return { bucket: "notCompleted", satisfyingCourses: [] };
+
+
+  const tokens = raw.split("/").map((s) => s.trim()).filter(Boolean);
+  const variants = [];
+  let lastPrefix = "";
+  for (const t of tokens) {
+    const prefixMatch = t.match(/^([A-Za-z]+)\s*/);
+    if (prefixMatch) {
+      lastPrefix = prefixMatch[1].toUpperCase();
+      variants.push(normalizeCodeKey(t));
+    } else if (lastPrefix) {
+      // Bare number token (e.g. "511") inherits the previous prefix.
+      variants.push(normalizeCodeKey(`${lastPrefix} ${t}`));
+    } else {
+      variants.push(normalizeCodeKey(t));
+    }
+  }
+
+  let best = null;
+  const rankOf = (status) => {
+    const s = String(status).toLowerCase();
+    if (s.includes("completed")) return 3;
+    if (s.includes("enrolled") || s.includes("progress")) return 2;
+    if (s.includes("planned")) return 1;
+    return 0;
+  };
+  for (const v of variants) {
+    const m = courseStatusMap.get(v);
+    if (!m) continue;
+    if (!best || rankOf(m.status) > rankOf(best.status)) best = m;
+  }
+  if (!best) return { bucket: "notCompleted", satisfyingCourses: [] };
+
+  const s = best.status.toLowerCase();
+  if (s.includes("completed")) {
+    return { bucket: "completed", satisfyingCourses: [best] };
+  }
+  if (s.includes("enrolled") || s.includes("planned") || s.includes("progress")) {
+    return { bucket: "planned", satisfyingCourses: [best] };
+  }
+  return { bucket: "notCompleted", satisfyingCourses: [] };
+}
+
+
+function buildCategorizedRequirements(programOrDegree, plans, completedCourses) {
+  const buckets = {
+    generalEducation: [],
+    majorCore: [],
+    electives: [],
+    interdisciplinary: [],
+    capstone: [],
+  };
+
+  const courseStatusMap = buildCourseStatusMap(plans, completedCourses);
+
+
+  const isLegacyShape =
+    programOrDegree &&
+    !Array.isArray(programOrDegree?.Courses) &&
+    (Array.isArray(programOrDegree?.generalEducation) ||
+      Array.isArray(programOrDegree?.majorCore) ||
+      Array.isArray(programOrDegree?.electives) ||
+      Array.isArray(programOrDegree?.interdisciplinary) ||
+      Array.isArray(programOrDegree?.capstone));
+
+  if (isLegacyShape) {
+    const sections = [
+      ["generalEducation", programOrDegree.generalEducation],
+      ["majorCore", programOrDegree.majorCore],
+      ["electives", programOrDegree.electives],
+      ["interdisciplinary", programOrDegree.interdisciplinary],
+      ["capstone", programOrDegree.capstone],
+    ];
+    for (const [key, items] of sections) {
+      const list = Array.isArray(items) ? items : [];
+      for (const item of list) {
+        const label = typeof item === "string" ? item : item?.label || "";
+        const codeMatch = label.match(/[A-Z]{2,4}\s?\d{3}[A-Z]?/);
+        const code = codeMatch ? codeMatch[0].replace(/\s+/g, " ").toUpperCase() : "";
+        const { bucket, satisfyingCourses } = statusForRequirement(
+          { course_code: code, course_name: label },
+          courseStatusMap
+        );
+        // For the legacy shape the section is already given to us; only the
+        // status bucket inside that section is derived.
+        buckets[key].push({ label, bucket, satisfyingCourses });
+      }
+    }
+    return buckets;
+  }
+
+  const courses = Array.isArray(programOrDegree?.Courses)
+    ? programOrDegree.Courses
+    : [];
+
+  for (const c of courses) {
+
+    const joinRow = c?.Program_Course || c?.program_courses || c?.through || {};
+    const req = {
+      course_code: c?.course_code,
+      course_name: c?.course_name,
+      requirement_type: joinRow?.requirement_type,
+    };
+    const section = categorizeRequirement(req);
+    if (!section || !buckets[section]) continue;
+
+    const label = `${(c?.course_code || "").trim()}${
+      c?.course_name ? ` - ${c.course_name}` : ""
+    }`;
+    const { bucket, satisfyingCourses } = statusForRequirement(req, courseStatusMap);
+    buckets[section].push({ label, bucket, satisfyingCourses });
+  }
+
+  return buckets;
+}
+
+// Render one category (e.g. "Major Core") split into the three status
+// sub-sections: Not Completed -> Planned -> Completed.
+function RequirementSection({ title, entries, emptyText }) {
+  const list = Array.isArray(entries) ? entries : [];
+
+  if (list.length === 0) {
+    return (
+      <div className="reqSection">
+        <div className="reqSection__title">{title}</div>
         <p className="muted reqSection__empty">
           {emptyText || "No courses fulfilling this requirement yet."}
         </p>
-      )}
+      </div>
+    );
+  }
+
+  const groups = [
+    { key: "notCompleted", label: "Not Completed", className: "reqGroup--notCompleted" },
+    { key: "planned",       label: "Planned",       className: "reqGroup--planned" },
+    { key: "completed",     label: "Completed",     className: "reqGroup--completed" },
+  ];
+
+  return (
+    <div className="reqSection">
+      <div className="reqSection__title">{title}</div>
+      {groups.map((g) => {
+        const items = list.filter((it) => it.bucket === g.key);
+        if (items.length === 0) return null;
+        return (
+          <div key={g.key} className={`reqGroup ${g.className}`}>
+            <div className="reqGroup__header">{g.label}</div>
+            <ul className="reqSection__list">
+              {items.map((it, i) => (
+                <li key={`${title}-${g.key}-${i}`}>
+                  <span className="reqItem__label">{it.label}</span>
+                  {it.satisfyingCourses?.length > 0 && (
+                    <span className="muted reqItem__via">
+                      {" "}
+                      ({it.satisfyingCourses.map((sc) => sc.code).join(", ")})
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -252,6 +440,7 @@ export default function GradPlansPage({
   token,
   onEditPlan,
   onPlansChanged,
+  requirements,
 }) {
   const major = student?.major || "Undeclared";
   const gpa =
@@ -308,9 +497,8 @@ export default function GradPlansPage({
     setGenerateError("");
     setGenerateWarning("");
 
-    // Track partial successes so a later failure doesn't hide earlier wins.
     const created = [];
-    // Collect per-term warning summaries from successful generations.
+
     const warningSummaries = [];
 
     try {
@@ -318,16 +506,15 @@ export default function GradPlansPage({
         const [semester, yearStr] = term.split(" ");
         const year = Number(yearStr);
         const result = await generateSemester(token, { semester, year });
-        // Helpful while debugging — leave for now, remove when stable.
+
         console.log("generateSemester result:", term, result);
 
         if (result?.plan_id == null) {
-          // Hard failure — surface blocker reasons.
+
           throw new Error(buildFailureSummary(result, term));
         }
         created.push(term);
 
-        // Soft path — plan was created, but may have prereq warnings.
         const wsum = buildWarningSummary(result, term);
         if (wsum) warningSummaries.push(wsum);
       }
@@ -343,13 +530,13 @@ export default function GradPlansPage({
         ? ` (Created ${created.length} of ${selectedSemesters.length}: ${created.join(", ")}.)`
         : "";
       setGenerateError(`${err.message || "Failed to generate plans."}${partial}`);
-      // If any plans succeeded with warnings before the failure, surface those too.
+
       if (warningSummaries.length) {
         setGenerateWarning(
           `Created with warnings: ${warningSummaries.join(" | ")}`
         );
       }
-      // Still refresh so any successful plans show up in the list.
+
       if (created.length && typeof onPlansChanged === "function") {
         await onPlansChanged();
       }
@@ -414,8 +601,46 @@ export default function GradPlansPage({
   const editablePlans = plans.filter((p) => canEditPlan(p));
   const lockedPlans = plans.filter((p) => !canEditPlan(p));
 
-  const degree = student?.degreeRequirements || {};
-  const advisorNote = student?.advisorNotes || null;
+
+  const categorizedRequirements = useMemo(() => {
+    const source = requirements || student?.degreeRequirements || null;
+    return buildCategorizedRequirements(source, plans, student?.completedCourses);
+  }, [requirements, student?.degreeRequirements, plans, student?.completedCourses]);
+
+  const advisorNote = useMemo(() => {
+    const candidates = plans
+      .filter((p) => p?.advisorFeedback && String(p.advisorFeedback).trim() !== "")
+      .map((p) => ({
+        advisorName: p.reviewedBy || "Advisor",
+        message: p.advisorFeedback,
+        rawDate: p.reviewedOn || p.submittedOn || null,
+        planTerm: p.term || "",
+      }));
+
+    if (candidates.length === 0) return null;
+
+    candidates.sort((a, b) => {
+      const aT = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+      const bT = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+      return bT - aT;
+    });
+
+    const top = candidates[0];
+    const formattedDate = top.rawDate
+      ? new Date(top.rawDate).toLocaleDateString(undefined, {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "";
+
+    return {
+      advisorName: top.advisorName,
+      message: top.message,
+      date: formattedDate,
+      planTerm: top.planTerm,
+    };
+  }, [plans]);
 
   const generateBtnLabel =
     selectedSemesters.length === 0
@@ -489,6 +714,33 @@ export default function GradPlansPage({
             >
               {generateBtnLabel}
             </button>
+          </div>
+
+          <div className="panel" style={{ marginTop: 12 }}>
+            <h3>Advisor Notes</h3>
+            {advisorNote ? (
+              <div className="advisorNoteCard">
+                <div className="advisorNoteCard__author">
+                  {advisorNote.advisorName || "Advisor"}
+                  {advisorNote.planTerm && (
+                    <span
+                      className="muted"
+                      style={{ fontWeight: "normal", marginLeft: 6 }}
+                    >
+                      · {advisorNote.planTerm}
+                    </span>
+                  )}
+                </div>
+                <p className="advisorNoteCard__message">
+                  {advisorNote.message || "No note provided."}
+                </p>
+                <div className="muted advisorNoteCard__date">
+                  {advisorNote.date || ""}
+                </div>
+              </div>
+            ) : (
+              <p className="muted">No advisor notes yet.</p>
+            )}
           </div>
         </aside>
 
@@ -579,34 +831,24 @@ export default function GradPlansPage({
 
             <RequirementSection
               title="General Education"
-              items={degree?.generalEducation}
+              entries={categorizedRequirements.generalEducation}
             />
-            <RequirementSection title="Major Core" items={degree?.majorCore} />
-            <RequirementSection title="Electives" items={degree?.electives} />
+            <RequirementSection
+              title="Major Core"
+              entries={categorizedRequirements.majorCore}
+            />
+            <RequirementSection
+              title="Electives"
+              entries={categorizedRequirements.electives}
+            />
             <RequirementSection
               title="Interdisciplinary"
-              items={degree?.interdisciplinary}
+              entries={categorizedRequirements.interdisciplinary}
             />
-            <RequirementSection title="Capstone" items={degree?.capstone} />
-          </div>
-
-          <div className="panel" style={{ marginTop: 12 }}>
-            <h3>Advisor Notes</h3>
-            {advisorNote ? (
-              <div className="advisorNoteCard">
-                <div className="advisorNoteCard__author">
-                  {advisorNote?.advisorName || "Advisor"}
-                </div>
-                <p className="advisorNoteCard__message">
-                  {advisorNote?.message || "No note provided."}
-                </p>
-                <div className="muted advisorNoteCard__date">
-                  {advisorNote?.date || ""}
-                </div>
-              </div>
-            ) : (
-              <p className="muted">No advisor notes yet.</p>
-            )}
+            <RequirementSection
+              title="Capstone"
+              entries={categorizedRequirements.capstone}
+            />
           </div>
         </aside>
       </div>

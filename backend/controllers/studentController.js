@@ -79,18 +79,40 @@ function groupSlotsIntoSections(slots) {
 }
 
 
+// Sentinel row meaning "user explicitly saved an empty availability."
+// It carries an invalid day code so the fit-check loop ignores it for
+// scheduling, but its presence in the DB lets us tell "never set"
+// (-> fully open) apart from "deliberately cleared" (-> no free time).
+const AVAILABILITY_EMPTY_SENTINEL = Object.freeze({
+    day: 'X',
+    start_time: '00:00',
+    end_time: '00:00',
+});
+
+function isSentinelRow(row) {
+    return row && row.day === AVAILABILITY_EMPTY_SENTINEL.day;
+}
+
 function buildAvailabilityIndex(availabilityRows) {
     const idx = { M: [], T: [], W: [], R: [], F: [] };
 
-    if (!availabilityRows || availabilityRows.length === 0) {
+    const realRows = (availabilityRows || []).filter(r => !isSentinelRow(r));
+    const sawSentinel = (availabilityRows || []).some(isSentinelRow);
 
+    // If the student has never saved any availability (no rows at all),
+    // fall back to "fully open 6 AM - 10 PM" so course generation still
+    // works for users who haven't visited the availability page yet.
+    if (realRows.length === 0 && !sawSentinel) {
         for (const d of DAY_LETTERS) {
             idx[d].push({ start: 6 * 60, end: 22 * 60 });
         }
         return { index: idx, hasData: false };
     }
 
-    for (const row of availabilityRows) {
+    // Otherwise the student has explicitly recorded their availability
+    // (even if that recording is "no free time at all"). Build the index
+    // from whatever real rows exist; an empty result means zero free time.
+    for (const row of realRows) {
         if (!idx[row.day]) continue;
         const start = toMinutes(row.start_time);
         const end = toMinutes(row.end_time);
@@ -820,7 +842,9 @@ exports.getAvailability = async (req, res) => {
         const rows = await StudentAvailability.findAll({
             where: { student_id: req.user.user_id },
         });
-        res.json(rows);
+        // Hide internal sentinel rows from the client; an empty save round-trips
+        // back to the UI as an empty array, which is correct.
+        res.json(rows.filter(r => !isSentinelRow(r)));
     } catch (error) {
         console.error('getAvailability error:', error);
         res.status(500).json({ error: error.message });
@@ -851,6 +875,14 @@ exports.saveAvailability = async (req, res) => {
 
         if (rows.length) {
             await StudentAvailability.bulkCreate(rows);
+        } else {
+            // User explicitly saved an empty availability. Insert a sentinel
+            // so we can distinguish "never set" (-> fully open fallback) from
+            // "deliberately cleared" (-> no free time) on the next read.
+            await StudentAvailability.create({
+                student_id: req.user.user_id,
+                ...AVAILABILITY_EMPTY_SENTINEL,
+            });
         }
 
         res.json({ message: 'Availability saved.', count: rows.length });
