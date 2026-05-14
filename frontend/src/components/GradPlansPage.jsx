@@ -2,6 +2,8 @@ import React, { useState, useMemo } from "react";
 import { generateSemester, deletePlan } from "@api/students.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { evaluateProgram } from "./evaluateRequirements.js";
+import { getProgramRequirements } from "./programRequirements.js";
 
 
 function getInitials(name = "") {
@@ -118,19 +120,39 @@ function normalizeCodeKey(raw) {
   return String(raw || "").replace(/\s+/g, " ").trim().toUpperCase();
 }
 
+function expandSlashVariants(rawCode) {
+  const key = normalizeCodeKey(rawCode);
+  if (!key.includes("/")) return [key];
+  const out = [key];
+  const tokens = key.split("/").map((s) => s.trim()).filter(Boolean);
+  let lastPrefix = "";
+  for (const t of tokens) {
+    const pm = t.match(/^([A-Z]+)\s*/);
+    if (pm) {
+      lastPrefix = pm[1];
+      out.push(normalizeCodeKey(t));
+    } else if (lastPrefix) {
+      out.push(normalizeCodeKey(`${lastPrefix} ${t}`));
+    }
+  }
+  return [...new Set(out)];
+}
 
 function buildCourseStatusMap(plans, completedCourses) {
   const rank = { completed: 3, enrolled: 2, "in progress": 2, planned: 1 };
   const map = new Map();
 
   const upsert = (rawCode, status, title) => {
-    const code = normalizeCodeKey(rawCode);
-    if (!code) return;
+    const keys = expandSlashVariants(rawCode);
+    if (keys.length === 0 || !keys[0]) return;
+    const canonicalCode = keys[0];
     const incomingRank = rank[status.toLowerCase()] ?? 0;
-    const existing = map.get(code);
-    const existingRank = existing ? rank[existing.status.toLowerCase()] ?? 0 : -1;
-    if (incomingRank >= existingRank) {
-      map.set(code, { code, title: title || existing?.title || "", status });
+    for (const k of keys) {
+      const existing = map.get(k);
+      const existingRank = existing ? rank[existing.status.toLowerCase()] ?? 0 : -1;
+      if (incomingRank >= existingRank) {
+        map.set(k, { code: canonicalCode, title: title || existing?.title || "", status });
+      }
     }
   };
 
@@ -147,142 +169,91 @@ function buildCourseStatusMap(plans, completedCourses) {
   return map;
 }
 
-function categorizeRequirement(req) {
-  const type = String(req?.requirement_type || req?.type || "").toLowerCase();
-  const code = String(req?.course_code || req?.code || "").toUpperCase();
+function RequirementDetail({ entry }) {
+  switch (entry.kind) {
+    case "single":
 
+      return null;
 
-  if (/^[A-Z]+\s*4\d{2}W$/.test(code) || /capstone/i.test(req?.course_name || "")) {
-    return "capstone";
-  }
-
-  if (type === "general") return "generalEducation";
-  if (type === "core") return "majorCore";
-  if (type === "elective") return "electives";
-
-  return null;
-}
-function statusForRequirement(req, courseStatusMap) {
-  const raw = String(req?.course_code || req?.code || "");
-  if (!raw) return { bucket: "notCompleted", satisfyingCourses: [] };
-
-
-  const tokens = raw.split("/").map((s) => s.trim()).filter(Boolean);
-  const variants = [];
-  let lastPrefix = "";
-  for (const t of tokens) {
-    const prefixMatch = t.match(/^([A-Za-z]+)\s*/);
-    if (prefixMatch) {
-      lastPrefix = prefixMatch[1].toUpperCase();
-      variants.push(normalizeCodeKey(t));
-    } else if (lastPrefix) {
-      // Bare number token (e.g. "511") inherits the previous prefix.
-      variants.push(normalizeCodeKey(`${lastPrefix} ${t}`));
-    } else {
-      variants.push(normalizeCodeKey(t));
+    case "chooseOne": {
+      const codes = (entry.options || []).map((o) => o.code).join(" / ");
+      return (
+        <div className="reqItem__sub muted">
+          Choose one: {codes}
+          {entry.satisfyingCourses?.length > 0 && (
+            <span className="reqItem__pick">
+              {" "}
+              · using {entry.satisfyingCourses[0].code}
+            </span>
+          )}
+        </div>
+      );
     }
-  }
 
-  let best = null;
-  const rankOf = (status) => {
-    const s = String(status).toLowerCase();
-    if (s.includes("completed")) return 3;
-    if (s.includes("enrolled") || s.includes("progress")) return 2;
-    if (s.includes("planned")) return 1;
-    return 0;
-  };
-  for (const v of variants) {
-    const m = courseStatusMap.get(v);
-    if (!m) continue;
-    if (!best || rankOf(m.status) > rankOf(best.status)) best = m;
-  }
-  if (!best) return { bucket: "notCompleted", satisfyingCourses: [] };
-
-  const s = best.status.toLowerCase();
-  if (s.includes("completed")) {
-    return { bucket: "completed", satisfyingCourses: [best] };
-  }
-  if (s.includes("enrolled") || s.includes("planned") || s.includes("progress")) {
-    return { bucket: "planned", satisfyingCourses: [best] };
-  }
-  return { bucket: "notCompleted", satisfyingCourses: [] };
-}
-
-
-function buildCategorizedRequirements(programOrDegree, plans, completedCourses) {
-  const buckets = {
-    generalEducation: [],
-    majorCore: [],
-    electives: [],
-    interdisciplinary: [],
-    capstone: [],
-  };
-
-  const courseStatusMap = buildCourseStatusMap(plans, completedCourses);
-
-
-  const isLegacyShape =
-    programOrDegree &&
-    !Array.isArray(programOrDegree?.Courses) &&
-    (Array.isArray(programOrDegree?.generalEducation) ||
-      Array.isArray(programOrDegree?.majorCore) ||
-      Array.isArray(programOrDegree?.electives) ||
-      Array.isArray(programOrDegree?.interdisciplinary) ||
-      Array.isArray(programOrDegree?.capstone));
-
-  if (isLegacyShape) {
-    const sections = [
-      ["generalEducation", programOrDegree.generalEducation],
-      ["majorCore", programOrDegree.majorCore],
-      ["electives", programOrDegree.electives],
-      ["interdisciplinary", programOrDegree.interdisciplinary],
-      ["capstone", programOrDegree.capstone],
-    ];
-    for (const [key, items] of sections) {
-      const list = Array.isArray(items) ? items : [];
-      for (const item of list) {
-        const label = typeof item === "string" ? item : item?.label || "";
-        const codeMatch = label.match(/[A-Z]{2,4}\s?\d{3}[A-Z]?/);
-        const code = codeMatch ? codeMatch[0].replace(/\s+/g, " ").toUpperCase() : "";
-        const { bucket, satisfyingCourses } = statusForRequirement(
-          { course_code: code, course_name: label },
-          courseStatusMap
-        );
-        // For the legacy shape the section is already given to us; only the
-        // status bucket inside that section is derived.
-        buckets[key].push({ label, bucket, satisfyingCourses });
-      }
+    case "chooseOneGroup": {
+      const groups = entry.groups || [];
+      return (
+        <div className="reqItem__sub muted">
+          <div>Choose one combination:</div>
+          <ul className="reqItem__groups">
+            {groups.map((g, i) => {
+              const isBest = i === 0;
+              const codes = g.codes.join(" + ");
+              const annot =
+                g.completedCount === g.totalCount && g.totalCount > 0
+                  ? "(complete)"
+                  : g.plannedCount + g.completedCount === g.totalCount && g.totalCount > 0
+                  ? "(in progress)"
+                  : g.completedCount > 0 || g.plannedCount > 0
+                  ? `(${g.completedCount + g.plannedCount}/${g.totalCount} so far)`
+                  : "";
+              return (
+                <li
+                  key={i}
+                  className={isBest ? "reqItem__groupBest" : "reqItem__groupAlt"}
+                >
+                  {g.name ? `${g.name}: ` : ""}
+                  {codes}
+                  {annot ? " " + annot : ""}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
     }
-    return buckets;
+
+    case "chooseN": {
+      const p = entry.progress || {};
+      const target = p.target ?? 0;
+      const done = p.completedCount ?? 0;
+      const planned = p.plannedCount ?? 0;
+      const pickedCodes = (entry.satisfyingCourses || []).map((s) => s.code).join(", ");
+      return (
+        <div className="reqItem__sub muted">
+          {done} of {target} complete
+          {planned > 0 ? `, ${planned} planned` : ""}
+          {pickedCodes ? ` · ${pickedCodes}` : ""}
+        </div>
+      );
+    }
+
+    case "crossSatisfied": {
+      const note = entry.note ? `${entry.note}: ` : "";
+      const codes = (entry.satisfiedBy || []).join(", ");
+      return (
+        <div className="reqItem__sub muted">
+          {note}
+          {codes}
+        </div>
+      );
+    }
+
+    default:
+      return null;
   }
-
-  const courses = Array.isArray(programOrDegree?.Courses)
-    ? programOrDegree.Courses
-    : [];
-
-  for (const c of courses) {
-
-    const joinRow = c?.Program_Course || c?.program_courses || c?.through || {};
-    const req = {
-      course_code: c?.course_code,
-      course_name: c?.course_name,
-      requirement_type: joinRow?.requirement_type,
-    };
-    const section = categorizeRequirement(req);
-    if (!section || !buckets[section]) continue;
-
-    const label = `${(c?.course_code || "").trim()}${
-      c?.course_name ? ` - ${c.course_name}` : ""
-    }`;
-    const { bucket, satisfyingCourses } = statusForRequirement(req, courseStatusMap);
-    buckets[section].push({ label, bucket, satisfyingCourses });
-  }
-
-  return buckets;
 }
 
-// Render one category (e.g. "Major Core") split into the three status
-// sub-sections: Not Completed -> Planned -> Completed.
 function RequirementSection({ title, entries, emptyText }) {
   const list = Array.isArray(entries) ? entries : [];
 
@@ -314,14 +285,17 @@ function RequirementSection({ title, entries, emptyText }) {
             <div className="reqGroup__header">{g.label}</div>
             <ul className="reqSection__list">
               {items.map((it, i) => (
-                <li key={`${title}-${g.key}-${i}`}>
-                  <span className="reqItem__label">{it.label}</span>
-                  {it.satisfyingCourses?.length > 0 && (
-                    <span className="muted reqItem__via">
-                      {" "}
-                      ({it.satisfyingCourses.map((sc) => sc.code).join(", ")})
-                    </span>
-                  )}
+                <li key={`${title}-${g.key}-${i}`} className="reqItem">
+                  <div className="reqItem__main">
+                    <span className="reqItem__label">{it.label}</span>
+                    {it.kind === "single" && it.satisfyingCourses?.length > 0 && (
+                      <span className="muted reqItem__via">
+                        {" "}
+                        ({it.satisfyingCourses.map((sc) => sc.code).join(", ")})
+                      </span>
+                    )}
+                  </div>
+                  <RequirementDetail entry={it} />
                 </li>
               ))}
             </ul>
@@ -388,9 +362,7 @@ function SavedPlanCard({
                 <span className="gpSavedPlanCard__courseCode">
                   {course.code}
                 </span>
-                <span className="muted gpSavedPlanCard__courseTitle">
-                  {course.title}
-                </span>
+
                 <span className="muted">{course.credits} cr</span>
                 <span className={getCourseStatusClass(course.status)}>
                   {normalizeStatus(course.status)}
@@ -440,7 +412,6 @@ export default function GradPlansPage({
   token,
   onEditPlan,
   onPlansChanged,
-  requirements,
 }) {
   const major = student?.major || "Undeclared";
   const gpa =
@@ -459,8 +430,6 @@ export default function GradPlansPage({
   const [selectedSemesters, setSelectedSemesters] = useState([]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
-  // Warnings (yellow) — plan was created, but with caveats (e.g. missing
-  // prereqs not yet scheduled). Distinct from generateError (red).
   const [generateWarning, setGenerateWarning] = useState("");
 
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
@@ -505,7 +474,12 @@ export default function GradPlansPage({
       for (const term of selectedSemesters) {
         const [semester, yearStr] = term.split(" ");
         const year = Number(yearStr);
-        const result = await generateSemester(token, { semester, year });
+
+        const result = await generateSemester(token, {
+          semester,
+          year,
+          requirements: evaluatedProgram.program || undefined,
+        });
 
         console.log("generateSemester result:", term, result);
 
@@ -602,10 +576,12 @@ export default function GradPlansPage({
   const lockedPlans = plans.filter((p) => !canEditPlan(p));
 
 
-  const categorizedRequirements = useMemo(() => {
-    const source = requirements || student?.degreeRequirements || null;
-    return buildCategorizedRequirements(source, plans, student?.completedCourses);
-  }, [requirements, student?.degreeRequirements, plans, student?.completedCourses]);
+  const evaluatedProgram = useMemo(() => {
+    const program = getProgramRequirements(student?.major) || null;
+    if (!program) return { program: null, result: { sections: [] } };
+    const statusMap = buildCourseStatusMap(plans, student?.completedCourses);
+    return { program, result: evaluateProgram(program, statusMap) };
+  }, [student?.major, plans, student?.completedCourses]);
 
   const advisorNote = useMemo(() => {
     const candidates = plans
@@ -829,26 +805,19 @@ export default function GradPlansPage({
           <div className="panel stickyPanel">
             <h3>Degree Requirements</h3>
 
-            <RequirementSection
-              title="General Education"
-              entries={categorizedRequirements.generalEducation}
-            />
-            <RequirementSection
-              title="Major Core"
-              entries={categorizedRequirements.majorCore}
-            />
-            <RequirementSection
-              title="Electives"
-              entries={categorizedRequirements.electives}
-            />
-            <RequirementSection
-              title="Interdisciplinary"
-              entries={categorizedRequirements.interdisciplinary}
-            />
-            <RequirementSection
-              title="Capstone"
-              entries={categorizedRequirements.capstone}
-            />
+            {evaluatedProgram.program ? (
+              evaluatedProgram.result.sections.map((s) => (
+                <RequirementSection
+                  key={s.key}
+                  title={s.title}
+                  entries={s.entries}
+                />
+              ))
+            ) : (
+              <p className="muted">
+                No structured requirements available for this program yet.
+              </p>
+            )}
           </div>
         </aside>
       </div>

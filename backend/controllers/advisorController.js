@@ -69,18 +69,11 @@ function shapePlanRow(plan) {
 
     const credits = courses.reduce((sum, c) => sum + (c.credits || 0), 0);
 
-    // PlanFeedback rows are split by source:
-    //   - advisor_id != null  → human advisor comment (shows in textarea)
-    //   - advisor_id == null  → system-generated warning (e.g., from the
-    //                           scheduler flagging a missing prereq). Surfaced
-    //                           via alerts.warnings instead of the textarea.
     const allFeedback = Array.isArray(plan.PlanFeedbacks) ? [...plan.PlanFeedbacks] : [];
     const humanFeedback = allFeedback.filter(f => f.advisor_id != null);
     const systemFeedback = allFeedback.filter(f => f.advisor_id == null);
 
-    // Newest-first for the human feedback. PlanFeedback has timestamps:false,
-    // so createdAt may be undefined — fall back to row id (autoincrement) for
-    // a stable "most recent" pick.
+
     humanFeedback.sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : (a.id || 0);
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : (b.id || 0);
@@ -104,8 +97,6 @@ function shapePlanRow(plan) {
     };
     planRow.alerts = computePlanAlerts(planRow);
 
-    // Fold system warnings into alerts.warnings. Strip the "[SYSTEM] " prefix
-    // for display since the warning group label already conveys the source.
     for (const sf of systemFeedback) {
         const msg = String(sf.message || "").replace(/^\[SYSTEM\]\s*/, "");
         if (msg) planRow.alerts.warnings.push(msg);

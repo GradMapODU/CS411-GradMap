@@ -78,11 +78,6 @@ function groupSlotsIntoSections(slots) {
     return Array.from(map.values());
 }
 
-
-// Sentinel row meaning "user explicitly saved an empty availability."
-// It carries an invalid day code so the fit-check loop ignores it for
-// scheduling, but its presence in the DB lets us tell "never set"
-// (-> fully open) apart from "deliberately cleared" (-> no free time).
 const AVAILABILITY_EMPTY_SENTINEL = Object.freeze({
     day: 'X',
     start_time: '00:00',
@@ -99,9 +94,6 @@ function buildAvailabilityIndex(availabilityRows) {
     const realRows = (availabilityRows || []).filter(r => !isSentinelRow(r));
     const sawSentinel = (availabilityRows || []).some(isSentinelRow);
 
-    // If the student has never saved any availability (no rows at all),
-    // fall back to "fully open 6 AM - 10 PM" so course generation still
-    // works for users who haven't visited the availability page yet.
     if (realRows.length === 0 && !sawSentinel) {
         for (const d of DAY_LETTERS) {
             idx[d].push({ start: 6 * 60, end: 22 * 60 });
@@ -109,9 +101,6 @@ function buildAvailabilityIndex(availabilityRows) {
         return { index: idx, hasData: false };
     }
 
-    // Otherwise the student has explicitly recorded their availability
-    // (even if that recording is "no free time at all"). Build the index
-    // from whatever real rows exist; an empty result means zero free time.
     for (const row of realRows) {
         if (!idx[row.day]) continue;
         const start = toMinutes(row.start_time);
@@ -223,6 +212,42 @@ exports.generateSemester = async (req, res) => {
             allCoursesForCodes.map(c => [c.course_code, c.course_id])
         );
         const groupKeyByCode = buildGroupKeyByCode();
+
+        const structured = req.body && req.body.requirements;
+        if (structured && Array.isArray(structured.sections)) {
+            let dynIdx = COURSE_GROUPS.length;
+            const addClass = (codes) => {
+                if (!Array.isArray(codes) || codes.length < 2) return;
+
+                const key = `__dyn_${dynIdx++}`;
+                for (const code of codes) {
+                    if (!code) continue;
+                    if (groupKeyByCode.has(code)) continue;
+                    groupKeyByCode.set(code, key);
+                }
+            };
+            for (const section of structured.sections) {
+                for (const reqItem of section.requirements || []) {
+                    if (reqItem.kind === 'chooseOne') {
+                        addClass((reqItem.options || []).map(o => o.code));
+                    } else if (reqItem.kind === 'chooseOneGroup') {
+                        const groups = reqItem.groups || [];
+                        const codeFrequency = new Map();
+                        for (const g of groups) {
+                            for (const c of g.codes || []) {
+                                codeFrequency.set(c, (codeFrequency.get(c) || 0) + 1);
+                            }
+                        }
+                        for (const g of groups) {
+                            const uniqueHeads = (g.codes || []).filter(
+                                c => codeFrequency.get(c) === 1
+                            );
+                            addClass(uniqueHeads);
+                        }
+                    }
+                }
+            }
+        }
 
         const excludedCourseIds = new Set();
         const excludedGroupKeys = new Set();
@@ -756,7 +781,7 @@ exports.deletePlan = async (req, res) => {
 exports.updatePlanCourses = async (req, res) => {
     try {
         const { plan_id } = req.params;
-        const courses = req.body.courses; // [{ code, title, credits, status? }]
+        const courses = req.body.courses; 
 
         if (!Array.isArray(courses)) {
             return res.status(400).json({ error: 'courses must be an array.' });
@@ -792,7 +817,7 @@ exports.updatePlanCourses = async (req, res) => {
                 year: c.year || new Date().getFullYear(),
                 status: c.status || 'Planned',
             }))
-            .filter(r => r.course_id); // drop unrecognised codes
+            .filter(r => r.course_id);
 
         if (rows.length) {
             await PlannedCourse.bulkCreate(rows);
@@ -842,8 +867,6 @@ exports.getAvailability = async (req, res) => {
         const rows = await StudentAvailability.findAll({
             where: { student_id: req.user.user_id },
         });
-        // Hide internal sentinel rows from the client; an empty save round-trips
-        // back to the UI as an empty array, which is correct.
         res.json(rows.filter(r => !isSentinelRow(r)));
     } catch (error) {
         console.error('getAvailability error:', error);
@@ -857,7 +880,7 @@ exports.saveAvailability = async (req, res) => {
             return res.status(503).json({ error: 'Availability feature not available.' });
         }
 
-        const slots = req.body; // [{ day, start_time, end_time }]
+        const slots = req.body;
         if (!Array.isArray(slots)) {
             return res.status(400).json({ error: 'Body must be an array of availability slots.' });
         }
@@ -876,9 +899,6 @@ exports.saveAvailability = async (req, res) => {
         if (rows.length) {
             await StudentAvailability.bulkCreate(rows);
         } else {
-            // User explicitly saved an empty availability. Insert a sentinel
-            // so we can distinguish "never set" (-> fully open fallback) from
-            // "deliberately cleared" (-> no free time) on the next read.
             await StudentAvailability.create({
                 student_id: req.user.user_id,
                 ...AVAILABILITY_EMPTY_SENTINEL,

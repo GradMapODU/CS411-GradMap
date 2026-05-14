@@ -27,7 +27,6 @@ global._ResourceModel = Resource;
 
 app.use(express.json());
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/advisors', advisorRoutes);
@@ -344,8 +343,6 @@ async function seedOfferings() {
     { days: 'TR', time_range: '15:30-16:45' },
   ];
 
-  // Single-day longer blocks (labs/seminars), used as a secondary meeting
-  // for ~20% of sections.
   const SINGLE_DAY_PATTERNS = [
     { days: 'W', time_range: '12:00-14:50' },
     { days: 'M', time_range: '15:00-17:50' },
@@ -386,7 +383,6 @@ async function seedOfferings() {
     const numSections = sectionCountFor(course);
 
     for (const semester of SEMESTERS) {
-      // One SemesterOffering per (course, semester). Sections live in TimeSlot.
       await SemesterOffering.findOrCreate({
         where: { course_id: course.course_id, semester },
         defaults: { course_id: course.course_id, semester },
@@ -694,7 +690,7 @@ async function seedStudent1Availability() {
 
 async function seedResources() {
   const count = await Resource.count();
-  if (count > 0) return; // already seeded
+  if (count > 0) return;
 
   const resources = [
 
@@ -896,7 +892,6 @@ async function seedResources() {
 }
 //#endregion
 
-// Sync database and start server
 const PORT = process.env.PORT || 3000;
 sequelize.sync({ force: true })
   .then(async () => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { updatePlanCourses } from "@api/students.js";
 
 function normalize(text) {
@@ -18,27 +18,29 @@ function sortByCode(a, b) {
   });
 }
 
-// Build a set of course codes the student has already completed.
-// Mirrors the backend's definition: a planned course counts as completed
-// when its status is "Completed".
-function buildCompletedSet(student) {
+function buildPrereqStateMap(student) {
   const plans = Array.isArray(student?.plan) ? student.plan : [];
-  const completed = new Set();
+  const map = new Map();
   for (const plan of plans) {
     const courses = Array.isArray(plan?.courses) ? plan.courses : [];
     for (const c of courses) {
-      if (c?.status === "Completed" && c?.code) {
-        completed.add(c.code);
-      }
+      const code = c?.code;
+      if (!code) continue;
+      const status = String(c?.status || "").toLowerCase();
+      let state = null;
+      if (status === "completed") state = "completed";
+      else if (status === "enrolled" || status === "planned" || status === "in progress") state = "planned";
+      if (!state) continue;
+      // completed > planned -- never downgrade.
+      const prior = map.get(code);
+      if (prior === "completed") continue;
+      map.set(code, state);
     }
   }
-  return completed;
+  return map;
 }
 
-// Given a course's prereq codes and the student's completed set, return
-// { met, missing, satisfied } where satisfied is true iff missing is empty.
-function evaluatePrereqs(course, completedCodes) {
-  // Prefer the structured array; fall back to parsing the display string.
+function evaluatePrereqs(course, prereqStateMap) {
   let codes = Array.isArray(course?.prerequisiteCodes)
     ? course.prerequisiteCodes
     : null;
@@ -46,36 +48,62 @@ function evaluatePrereqs(course, completedCodes) {
   if (!codes) {
     const raw = String(course?.prerequisites || "").trim();
     codes = raw && raw !== "None listed"
-      ? raw.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+      ? raw.split(/[,;]/).map((s) => s.trim()).filter(Boolean)
       : [];
   }
 
   const met = [];
+  const planned = [];
   const missing = [];
   for (const code of codes) {
-    (completedCodes.has(code) ? met : missing).push(code);
+    const state = prereqStateMap.get(code);
+    if (state === "completed") met.push(code);
+    else if (state === "planned") planned.push(code);
+    else missing.push(code);
   }
 
-  return { codes, met, missing, satisfied: missing.length === 0 };
+  return { codes, met, planned, missing, satisfied: missing.length === 0 };
 }
 
-function CourseCard({ course, editingPlan, onAddCourse, completedCodes }) {
+function CourseCard({ course, editingPlan, onAddCourse, prereqStateMap }) {
   const isInPlan =
     editingPlan &&
     Array.isArray(editingPlan.courses) &&
     editingPlan.courses.some((c) => c.code === course.code);
 
-  const { codes: prereqCodes, met, missing, satisfied } = evaluatePrereqs(
+  const { codes: prereqCodes, met, planned, missing, satisfied } = evaluatePrereqs(
     course,
-    completedCodes
+    prereqStateMap
   );
   const hasPrereqs = prereqCodes.length > 0;
+
+  const reliesOnPlanned = satisfied && planned.length > 0;
+
+  const courseState = prereqStateMap.get(course.code) || null;
 
   return (
     <article className="catalogCourseCard">
       <div className="catalogCourseCard__top">
         <div>
-          <div className="catalogCourseCard__code">{course.code}</div>
+          <div className="catalogCourseCard__codeRow">
+            <span className="catalogCourseCard__code">{course.code}</span>
+            {courseState === "completed" && (
+              <span
+                className="prereqChip prereqChip--met"
+                title="You have completed this course"
+              >
+                ✓ Completed
+              </span>
+            )}
+            {courseState === "planned" && (
+              <span
+                className="prereqChip prereqChip--planned"
+                title="This course is in one of your plans"
+              >
+                – Planned
+              </span>
+            )}
+          </div>
           <h3 className="catalogCourseCard__title">{course.title}</h3>
         </div>
 
@@ -108,30 +136,25 @@ function CourseCard({ course, editingPlan, onAddCourse, completedCodes }) {
                 <span
                   key={`${course.code}-met-${code}`}
                   title="You have completed this prerequisite"
-                  style={{
-                    color: "#7ee2a8",
-                    background: "rgba(46,204,113,.12)",
-                    border: "1px solid rgba(46,204,113,.35)",
-                    borderRadius: 4,
-                    padding: "1px 6px",
-                    fontSize: ".85rem",
-                  }}
+                  className="prereqChip prereqChip--met"
                 >
                   ✓ {code}
+                </span>
+              ))}
+              {planned.map((code) => (
+                <span
+                  key={`${course.code}-planned-${code}`}
+                  title="This prerequisite is in one of your plans (not yet completed)"
+                  className="prereqChip prereqChip--planned"
+                >
+                  – {code}
                 </span>
               ))}
               {missing.map((code) => (
                 <span
                   key={`${course.code}-missing-${code}`}
-                  title="You have not completed this prerequisite"
-                  style={{
-                    color: "#ff6b6b",
-                    background: "rgba(255,77,77,.10)",
-                    border: "1px solid rgba(255,77,77,.40)",
-                    borderRadius: 4,
-                    padding: "1px 6px",
-                    fontSize: ".85rem",
-                  }}
+                  title="You have not taken or planned this prerequisite"
+                  className="prereqChip prereqChip--missing"
                 >
                   ✗ {code}
                 </span>
@@ -165,8 +188,21 @@ function CourseCard({ course, editingPlan, onAddCourse, completedCodes }) {
             <button
               className="btn primary gpBtn--small"
               onClick={() => onAddCourse?.(course)}
+              title={
+                reliesOnPlanned
+                  ? `Note: relies on planned prereq${planned.length > 1 ? "s" : ""}: ${planned.join(", ")}`
+                  : undefined
+              }
             >
               + Add to Plan
+              {reliesOnPlanned && (
+                <span
+                  className="muted"
+                  style={{ marginLeft: 6, fontSize: ".8em" }}
+                >
+                  (via planned)
+                </span>
+              )}
             </button>
           ) : (
             <button
@@ -285,8 +321,20 @@ export default function CourseCataloguePage({
     [student?.plan]
   );
 
-  // Set of course codes the student has completed — used to grade prereqs.
-  const completedCodes = useMemo(() => buildCompletedSet(student), [student]);
+  const editablePlans = useMemo(() => {
+    return plans
+      .filter((p) => {
+        const s = String(p?.status || "").toLowerCase();
+        return s === "draft" || s === "needs revision";
+      })
+      .sort((a, b) =>
+        String(a?.term || "").localeCompare(String(b?.term || ""), undefined, {
+          numeric: true,
+        })
+      );
+  }, [plans]);
+
+  const prereqStateMap = useMemo(() => buildPrereqStateMap(student), [student]);
 
   const editingPlan = useMemo(() => {
     if (!editingPlanId) return null;
@@ -296,21 +344,13 @@ export default function CourseCataloguePage({
 
   const [localCourses, setLocalCourses] = useState([]);
 
-
-  useState(() => {
+  useEffect(() => {
     if (editingPlan) {
       setLocalCourses(
         Array.isArray(editingPlan.courses) ? [...editingPlan.courses] : []
       );
-    }
-  });
-
-
-  useMemo(() => {
-    if (editingPlan) {
-      setLocalCourses(
-        Array.isArray(editingPlan.courses) ? [...editingPlan.courses] : []
-      );
+    } else {
+      setLocalCourses([]);
     }
   }, [editingPlan]);
 
@@ -324,9 +364,7 @@ export default function CourseCataloguePage({
     const exists = localCourses.some((c) => c.code === course.code);
     if (exists) return;
 
-    // Defense-in-depth: even if something bypasses the disabled button,
-    // refuse to add a course whose prerequisites aren't met.
-    const { missing, satisfied } = evaluatePrereqs(course, completedCodes);
+    const { missing, satisfied } = evaluatePrereqs(course, prereqStateMap);
     if (!satisfied) {
       alert(
         `Cannot add ${course.code}. Missing prerequisite${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`
@@ -430,6 +468,60 @@ export default function CourseCataloguePage({
         </div>
       </div>
 
+      {!localPlan && editablePlans.length > 0 && (
+        <div className="catalogPlanPicker panel">
+          <label
+            className="catalogFieldLabel"
+            htmlFor="catalog-plan-picker"
+            style={{ marginRight: 8 }}
+          >
+            Edit a plan:
+          </label>
+          <select
+            id="catalog-plan-picker"
+            className="input"
+            value=""
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val && typeof onSelectPlan === "function") {
+                onSelectPlan(val);
+              }
+            }}
+            style={{ maxWidth: 320 }}
+          >
+            <option value="">
+              {editablePlans.length === 1
+                ? `Select ${editablePlans[0].term || "your plan"}…`
+                : `Select one of ${editablePlans.length} editable plans…`}
+            </option>
+            {editablePlans.map((p) => {
+              const credits = Array.isArray(p?.courses)
+                ? p.courses.reduce((s, c) => s + Number(c?.credits || 0), 0)
+                : 0;
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.term || "Plan"} — {p.status || "Draft"} ({credits} cr)
+                </option>
+              );
+            })}
+          </select>
+          <p className="muted" style={{ margin: "6px 0 0", fontSize: ".82rem" }}>
+            Pick a Draft plan to add or remove courses from it without leaving
+            the catalogue.
+          </p>
+        </div>
+      )}
+
+      {!localPlan && editablePlans.length === 0 && (
+        <div className="panel">
+          <p className="muted" style={{ margin: 0 }}>
+            You don't have any editable plans right now. Create a Draft plan
+            from the GradPlans page first, then come back here to add courses
+            to it.
+          </p>
+        </div>
+      )}
+
       {localPlan && (
         <PlanEditPanel
           plan={localPlan}
@@ -500,7 +592,7 @@ export default function CourseCataloguePage({
               course={course}
               editingPlan={localPlan}
               onAddCourse={handleAddCourse}
-              completedCodes={completedCodes}
+              prereqStateMap={prereqStateMap}
             />
           ))}
         </div>

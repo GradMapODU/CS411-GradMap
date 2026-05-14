@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { deletePlan, submitPlan } from "@api/students.js";
+import { deletePlan } from "@api/students.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -94,7 +94,7 @@ function getAdvisorReviewText(plan) {
   return "Not submitted";
 }
 
-export default function StudentDashboard({ student, token, onEditPlan, onPlansChanged }) {
+export default function StudentDashboard({ student, token, onSubmitPlan, onPlansChanged }) {
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
   const pctFromCredits =
@@ -111,7 +111,33 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
         ? pctFromCredits
         : null;
 
-  // rogress percent
+  const creditsPlanned = useMemo(() => {
+    const planList = Array.isArray(student?.plan) ? student.plan : [];
+    let total = 0;
+    for (const plan of planList) {
+      const planStatus = normalizeStatus(plan?.status).toLowerCase();
+      if (planStatus === "historical") continue;
+      if (planStatus === "needs revision" || planStatus === "rejected") continue;
+      for (const course of plan?.courses || []) {
+        const cStatus = normalizeStatus(course?.status).toLowerCase();
+        if (cStatus === "enrolled" || cStatus === "planned" || cStatus === "in progress") {
+          total += Number(course?.credits) || 0;
+        }
+      }
+    }
+    return total;
+   }, [student]);
+
+  const plannedPct =
+    typeof student?.creditsRequired === "number" && student.creditsRequired > 0
+      ? Math.min(
+          100,
+          ((Number(student.creditsEarned) || 0) + creditsPlanned) /
+            student.creditsRequired *
+            100
+        )
+      : null;
+
   const classification = typeof progressPct === "number"
     ? progressPct < 25
       ? "Freshman"
@@ -122,10 +148,8 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
           : "Senior"
     : "";
 
-  // Major
   const major = student?.major || "";
 
-  // GPA
   const gpa =
     typeof student?.gpa === "number"
       ? student.gpa.toFixed(2)
@@ -191,7 +215,7 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
     merged.urgent = Array.from(new Set(merged.urgent));
 
     return merged;
-  }, [alertsSourcePlans, selectedCount, student?.alerts]);
+ }, [alertsSourcePlans, selectedCount, student]);
 
   const displayedUrgent = displayedPlanAlerts.urgent || [];
   const displayedWarnings = displayedPlanAlerts.warnings || [];
@@ -206,7 +230,11 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
 
   const submittablePlans = selectedPlans.filter((plan) => {
     const status = normalizeStatus(plan?.status).toLowerCase();
-    return status === "draft";
+    return (
+      status === "draft" ||
+      status === "awaiting submission" ||
+      status === "needs changes"
+    );
   });
 
   const canSubmit = submittablePlans.length > 0;
@@ -216,9 +244,7 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
     const s = normalizeStatus(p.status).toLowerCase();
     return s !== "approved" && s !== "historical";
   });
-  const canEdit =
-    selectedCount === 1 &&
-    normalizeStatus(selectedSinglePlan?.status).toLowerCase() === "draft";
+  const canEdit = selectedCount === 1;
 
   const submitLabel =
     submittablePlans.length > 1 ? "Submit Plan(s)" : "Submit Plan";
@@ -239,25 +265,17 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
     setSelectedPlanIds([]);
   }
 
-  async function handleSubmitSelected() {
-    if (!submittablePlans.length || !token) return;
+  function handleSubmitSelected() {
+    if (!submittablePlans.length) return;
 
-    try {
-      await Promise.all(
-        submittablePlans.map((plan) => submitPlan(token, plan.id))
-      );
-      setSelectedPlanIds([]);
-      if (typeof onPlansChanged === "function") await onPlansChanged();
-    } catch (err) {
-      alert(err?.message || "Failed to submit plan(s). Please try again.");
+    if (typeof onSubmitPlan === "function") {
+      onSubmitPlan(submittablePlans);
     }
   }
 
   function handleEditSelected() {
-    if (!canEdit || !selectedSinglePlan) return;
-    if (typeof onEditPlan === "function") {
-      onEditPlan(selectedSinglePlan.id);
-    }
+    if (!selectedSinglePlan) return;
+    console.log("Edit plan:", selectedSinglePlan);
   }
 
   async function handleDeleteSelected() {
@@ -296,7 +314,6 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
       day: "numeric",
     });
 
-    // Header
     doc.setFontSize(18);
     doc.text("GradMap — Plan Export", 14, 18);
     doc.setFontSize(11);
@@ -309,7 +326,6 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
     selectedPlans.forEach((plan, idx) => {
       if (idx > 0) cursorY += 6;
 
-      // Plan heading
       doc.setFontSize(13);
       doc.setTextColor(20);
       doc.text(plan.term || "Plan", 14, cursorY);
@@ -322,7 +338,6 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
       );
       cursorY += 12;
 
-      // Course table
       const rows = (plan.courses || []).map((c) => [
         c.code || "",
         c.title || "",
@@ -343,7 +358,6 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
 
       cursorY = doc.lastAutoTable.finalY + 4;
 
-      // Advisor feedback
       if (plan.advisorFeedback) {
         doc.setFontSize(10);
         doc.setTextColor(60);
@@ -353,14 +367,12 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
         cursorY += 10 + wrapped.length * 5;
       }
 
-      // Page break if running low on space
       if (cursorY > 260 && idx < selectedPlans.length - 1) {
         doc.addPage();
         cursorY = 20;
       }
     });
 
-    // Open in a new tab
     const blobUrl = doc.output("bloburl");
     window.open(blobUrl, "_blank");
   }
@@ -398,10 +410,18 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
       <div className="grid">
         <div className="panel">
           <h3>Progress</h3>
-          <div className="progress">
+          <div className="progress progress--stacked">
+            {creditsPlanned > 0 && plannedPct != null && (
+              <div
+                className="progress__bar progress__bar--planned"
+                style={{ width: `${plannedPct}%` }}
+                aria-label="Planned credits"
+              />
+            )}
             <div
-              className="progress__bar"
+              className="progress__bar progress__bar--completed"
               style={{ width: progressPct != null ? `${progressPct}%` : "0%" }}
+              aria-label="Completed credits"
             />
           </div>
           <p>
@@ -410,9 +430,10 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
                 ? Math.round(progressPct)
                 : "0"
             }%</b>{" "}
-            complete • {student?.creditsEarned ?? ""} / {student?.creditsRequired ?? ""}
-            {" "}
-            credits
+            complete • {student?.creditsEarned ?? 0} completed
+            {creditsPlanned > 0 && `, ${creditsPlanned} planned`}
+            {" / "}
+            {student?.creditsRequired ?? "?"} required
           </p>
         </div>
 
@@ -576,7 +597,7 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
           disabled={!canSubmit}
           title={
             !canSubmit
-              ? "Select a Draft plan to submit."
+              ? "Select a Draft, Awaiting Submission, or Needs Changes plan."
               : undefined
           }
         >
@@ -587,7 +608,7 @@ export default function StudentDashboard({ student, token, onEditPlan, onPlansCh
           className="btn"
           onClick={handleEditSelected}
           disabled={!canEdit}
-          title={!canEdit ? "Select exactly one Draft plan to edit." : undefined}
+          title={!canEdit ? "Select exactly one plan to edit." : undefined}
         >
           Edit Plan
         </button>

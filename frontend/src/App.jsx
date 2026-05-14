@@ -1,6 +1,6 @@
-// frontend/src/App.jsx
 import { useState, useEffect } from "react";
 
+import LandingPage from "./components/LandingPage.jsx";
 import StudentDashboard from "./components/StudentDashboard.jsx";
 import AdvisorQueue from "./components/AdvisorQueue.jsx";
 import LoginPage from "./components/LoginPage.jsx";
@@ -8,13 +8,14 @@ import RegisterPage from "./components/RegisterPage.jsx";
 import MyAvailabilityPage from "./components/MyAvailabilityPage.jsx";
 import GradPlansPage from "./components/GradPlansPage.jsx";
 import CourseCataloguePage from "./components/CourseCataloguePage.jsx";
+import ResourcesPage from "./components/ResourcesPage.jsx";
 import { getCourseCatalog } from "@api/courses.js";
 
 import { mockData } from "./data/mockData.js";
 import "./App.css";
 
 import { getCurrentStudent, getRequirements } from "@api/students.js";
-import { getStudents as getAdvisorStudents, updatePlan } from "@api/advisors.js";
+import { getStudents as getAdvisorStudents, updatePlan, getCurrentAdvisor } from "@api/advisors.js";
 
 function AdvisingHubPage() {
   return (
@@ -27,7 +28,7 @@ function AdvisingHubPage() {
   );
 }
 
-function ResourcesPage() {
+function ResourcePage() {
   return (
     <section className="card">
       <h2>Resources</h2>
@@ -54,28 +55,28 @@ function getTodayString() {
 }
 
 export default function App() {
-  const [view, setView] = useState("login");
+  const [view, setView] = useState("landing");
   const [session, setSession] = useState(null);
   const [studentPage, setStudentPage] = useState("dashboard");
   const [menuOpen, setMenuOpen] = useState(false);
   const [appData, setAppData] = useState(mockData);
 
-  // backend-backed state
   const [studentRequirements, setStudentRequirements] = useState(null);
   const [advisorStudents, setAdvisorStudents] = useState(null);
   const [currentStudent, setCurrentStudent] = useState(null);
   const [editingPlanId, setEditingPlanId] = useState(null);
   const [courseCatalogue, setCourseCatalogue] = useState([]);
+  const [currentAdvisor, setCurrentAdvisor] = useState(null);
 
-  
-  // Load backend data whenever the session changes (login, role switch, etc.)
   useEffect(() => {
     const token = session?.token;
     if (!token) return;
 
     async function loadBackendData() {
       try {
-        if (session.roles?.includes("student")) {
+        const rolesLower = (session.roles || []).map((r) => String(r).toLowerCase());
+
+        if (rolesLower.includes("student")) {
           const studentData = await getCurrentStudent(token);
           setCurrentStudent(studentData || null);
 
@@ -83,9 +84,15 @@ export default function App() {
           setStudentRequirements(requirements);
         }
 
-        if (session.roles?.includes("advisor")) {
-          const students = await getAdvisorStudents(token);
-          setAdvisorStudents(students);
+        if (rolesLower.includes("advisor")) {
+          const advisorData = await getCurrentAdvisor(token);
+          setCurrentAdvisor(advisorData || null);
+
+          const raw = await getAdvisorStudents(token);
+          const students = Array.isArray(raw?.students) ? raw.students : [];
+          const submissions = Array.isArray(raw?.submissions) ? raw.submissions : [];
+
+          setAdvisorStudents({ students, submissions });
         }
       } catch (err) {
         console.error("Failed to load backend data:", err);
@@ -111,7 +118,12 @@ export default function App() {
 
 
   function loginSuccess(s) {
-    setSession(s);
+    const normalized = {
+      ...s,
+      roles: (s.roles || (s.role ? [s.role] : [])).map((r) => String(r).toLowerCase()),
+      activeRole: String(s.activeRole || s.role || "student").toLowerCase(),
+    };
+    setSession(normalized);
     setView("app");
     setStudentPage("dashboard");
     setMenuOpen(false);
@@ -122,6 +134,7 @@ export default function App() {
     setView("login");
     setMenuOpen(false);
     setCurrentStudent(null);
+    setCurrentAdvisor(null);
     setStudentRequirements(null);
     setAdvisorStudents(null);
     setEditingPlanId(null);
@@ -246,13 +259,19 @@ export default function App() {
 
     if (token && planId) {
       try {
-        await updatePlan(token, planId, "Approved", feedback || "Approved with no additional comments.");
+        await updatePlan(token, planId, {
+          status: "Approved",
+          message: feedback || "Approved with no additional comments.",
+        });
       } catch (err) {
         console.error("Failed to approve plan:", err);
       }
     }
 
-    const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
+    const advisorName =
+      currentAdvisor?.name ||
+      appData.advisors?.[advisorId]?.name ||
+      "Advisor";
     const reviewedOn = getTodayString();
 
     updateStudentPlan(studentId, planId, (plan) => ({
@@ -263,6 +282,18 @@ export default function App() {
       reviewedBy: advisorName,
       reviewedOn,
     }));
+
+    if (token) {
+      try {
+        const refreshed = await getAdvisorStudents(token);
+        setAdvisorStudents({
+          students: refreshed?.students || [],
+          submissions: refreshed?.submissions || [],
+        });
+      } catch (err) {
+        console.error("Failed to refresh advisor queue:", err);
+      }
+    }
   }
 
   async function handleRequestChanges({
@@ -275,23 +306,41 @@ export default function App() {
 
     if (token && planId) {
       try {
-        await updatePlan(token, planId, "Needs Revision", feedback || "Please revise this plan.");
+        await updatePlan(token, planId, {
+          status: "Needs Revision",
+          message: feedback || "Please revise this plan.",
+        });
       } catch (err) {
         console.error("Failed to request plan changes:", err);
       }
     }
 
-    const advisorName = appData.advisors?.[advisorId]?.name || "Advisor";
+    const advisorName =
+      currentAdvisor?.name ||
+      appData.advisors?.[advisorId]?.name ||
+      "Advisor";
     const reviewedOn = getTodayString();
 
     updateStudentPlan(studentId, planId, (plan) => ({
       ...plan,
-      status: "Needs Changes",
-      advisorStatus: "Needs Changes",
+      status: "Needs Revision",
+      advisorStatus: "Needs Revision",
       advisorFeedback: feedback || "Please revise this plan.",
       reviewedBy: advisorName,
       reviewedOn,
     }));
+
+    if (token) {
+      try {
+        const refreshed = await getAdvisorStudents(token);
+        setAdvisorStudents({
+          students: refreshed?.students || [],
+          submissions: refreshed?.submissions || [],
+        });
+      } catch (err) {
+        console.error("Failed to refresh advisor queue:", err);
+      }
+    }
   }
 
   function handleSubmitPlan() {
@@ -432,6 +481,19 @@ export default function App() {
     updateStudentGradPlans(studentId, newGradPlans);
   }
 
+  if (view === "landing") {
+    return (
+      <div>
+        <header className="topbar">
+          <div className="brand">GradMap</div>
+        </header>
+
+        <main className="layout">
+          <LandingPage onStart={() => setView("login")} />
+        </main>
+      </div>
+    );
+  }
   if (view === "login") {
     return (
       <div>
@@ -491,7 +553,6 @@ export default function App() {
     { id: "gradplans", label: "GradPlans" },
     { id: "catalogue", label: "Course Catalogue" },
     { id: "availability", label: "My Availability" },
-    { id: "advising", label: "Advising Hub" },
     { id: "resources", label: "Resources" },
   ];
 
@@ -555,15 +616,23 @@ export default function App() {
             }}
           />
         );
-
       case "catalogue":
         return (
           <CourseCataloguePage
-            student={studentRecord}
+            student={currentStudent}
             token={session?.token}
             courses={catalogueCourses}
             editingPlanId={editingPlanId}
             onSelectPlan={(planId) => setEditingPlanId(planId)}
+            onPlanSaved={async () => {
+              if (!session?.token) return;
+              try {
+                const studentData = await getCurrentStudent(session.token);
+                setCurrentStudent(studentData || null);
+              } catch (err) {
+                console.error("Failed to refresh student data:", err);
+              }
+            }}
             onAddCourseToPlan={(planId, course) => {
               const sid = session?.username || "student1";
               handleAddCourseToGradPlan(sid, planId, course);
@@ -574,7 +643,6 @@ export default function App() {
             }}
           />
         );
-
       case "availability":
         return (
           <MyAvailabilityPage
@@ -583,12 +651,8 @@ export default function App() {
             token={session?.token}
           />
         );
-
-      case "advising":
-        return <AdvisingHubPage />;
-
       case "resources":
-        return <ResourcesPage />;
+        return <ResourcesPage token={session?.token} />;
 
       default:
         return null;
@@ -696,9 +760,8 @@ export default function App() {
           renderStudentPage()
         ) : activeRole === "advisor" ? (
           <AdvisorQueue
-            advisor={advisorRecord}
-            students={appData.students}
-            advisorStudents={advisorStudents}
+            advisor={currentAdvisor || advisorRecord}
+            data={advisorStudents}
             onApprovePlan={handleApprovePlan}
             onRequestChanges={handleRequestChanges}
           />
