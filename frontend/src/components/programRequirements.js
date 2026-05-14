@@ -83,11 +83,6 @@ export const computerSciencePrograms = {
       ],
     },
 
-    // -------------------------------------------------------------------
-    // GENERAL EDUCATION
-    // -------------------------------------------------------------------
-    // Math: omitted (satisfied in major via MATH 211/212).
-    // Language & Culture: omitted (typically met via HS placement).
     {
       key: "generalEducation",
       title: "General Education",

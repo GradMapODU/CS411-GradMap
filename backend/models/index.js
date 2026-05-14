@@ -56,11 +56,11 @@ const Course = sequelize.define('Course', {
 const TimeSlot = sequelize.define('Time_Slot', {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     course_id: DataTypes.INTEGER,
-    section_number: DataTypes.STRING(10), // "001", "002" — groups meeting rows into one section
+    section_number: DataTypes.STRING(10),
     semester: DataTypes.ENUM('Fall', 'Spring', 'Summer', 'Winter'),
     year: DataTypes.INTEGER,
-    days: DataTypes.STRING(10), //"MWF", "TR"
-    time_range: DataTypes.STRING(50) // "09:00-10:15"
+    days: DataTypes.STRING(10), 
+    time_range: DataTypes.STRING(50) 
 }, { timestamps: false });
 
 const Program = sequelize.define('Program', {
@@ -122,7 +122,7 @@ const StudentAvailability = sequelize.define('StudentAvailability', {
     end_time: { type: DataTypes.STRING(5), allowNull: false }    // "HH:MM"
 }, { timestamps: false, tableName: 'Student_availability' });
 
-//Relationships
+
 User.hasOne(Student, { foreignKey: 'student_id' });
 User.hasOne(Advisor, { foreignKey: 'advisor_id' });
 User.hasOne(Admin, { foreignKey: 'admin_id' });
@@ -148,15 +148,15 @@ PlanFeedback.belongsTo(Plan, { foreignKey: 'plan_id' });
 Advisor.hasMany(PlanFeedback, { foreignKey: 'advisor_id' });
 PlanFeedback.belongsTo(Advisor, { foreignKey: 'advisor_id' });
 
-// Program to Course (Many-to-Many)
+
 Program.belongsToMany(Course, { through: ProgramCourse, foreignKey: 'program_id' });
 Course.belongsToMany(Program, { through: ProgramCourse, foreignKey: 'course_id' });
 
-// Course to SemesterOffering (One-to-Many)
+
 Course.hasMany(SemesterOffering, { foreignKey: 'course_id' });
 SemesterOffering.belongsTo(Course, { foreignKey: 'course_id' });
 
-// Course to Prerequisites 
+
 Course.belongsToMany(Course, { 
     as: 'RequiredPrerequisites', 
     through: Prerequisite, 
@@ -164,7 +164,7 @@ Course.belongsToMany(Course, {
     otherKey: 'prerequisite_course_id' 
 });
 
-// Student availability
+
 Student.hasMany(StudentAvailability, { foreignKey: 'student_id' });
 StudentAvailability.belongsTo(Student, { foreignKey: 'student_id' });
 

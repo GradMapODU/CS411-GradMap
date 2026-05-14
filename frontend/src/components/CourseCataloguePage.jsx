@@ -31,7 +31,7 @@ function buildPrereqStateMap(student) {
       if (status === "completed") state = "completed";
       else if (status === "enrolled" || status === "planned" || status === "in progress") state = "planned";
       if (!state) continue;
-      // completed > planned -- never downgrade.
+
       const prior = map.get(code);
       if (prior === "completed") continue;
       map.set(code, state);

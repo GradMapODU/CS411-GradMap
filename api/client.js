@@ -1,12 +1,5 @@
 // api/client.js
-//
-// Lightweight wrapper around fetch with three conveniences the rest of the
-// codebase already assumes:
-//   - `token`  attaches "Authorization: Bearer <token>"
-//   - `body`   if it's a plain object/array, gets JSON.stringified for you
-//              (a pre-stringified string passes through untouched)
-//   - errors  surface the server's `error` / `message` field when the
-//              response is non-2xx
+
 export async function apiRequest(path, options = {}) {
   const { token, body, headers: customHeaders, ...rest } = options;
 

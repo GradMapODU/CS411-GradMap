@@ -4,22 +4,16 @@ const {
     StudentAvailability, Prerequisite
 } = require('../models');
 
-/* -------------------------------------------------------------------------- */
-/* Shared helpers                                                             */
-/* -------------------------------------------------------------------------- */
 
 const DAY_LETTERS = ['M', 'T', 'W', 'R', 'F'];
 const SEMESTER_ORDER = { Spring: 0, Summer: 1, Fall: 2, Winter: 3 };
 
-// Course groups: choosing any one course in a group counts as satisfying the
-// group, so we treat the remaining members as already taken.
 const COURSE_GROUPS = [
     ['CS 150', 'CS 151', 'CS 153'],
     ['CS 120G', 'CS 121G', 'CS 126G', 'CS 202G'],
 ];
 
-// Sentinel row used to record "the student saved an empty availability".
-// Without this we can't distinguish "no data yet" from "explicitly empty".
+
 const AVAILABILITY_EMPTY_SENTINEL = Object.freeze({
     day: 'X',
     start_time: '00:00',
@@ -87,7 +81,7 @@ function buildAvailabilityIndex(availabilityRows) {
     const realRows = (availabilityRows || []).filter(r => !isSentinelRow(r));
     const sawSentinel = (availabilityRows || []).some(isSentinelRow);
 
-    // No data at all => treat the student as fully open 6 AM - 10 PM.
+
     if (realRows.length === 0 && !sawSentinel) {
         for (const d of DAY_LETTERS) {
             idx[d].push({ start: 6 * 60, end: 22 * 60 });
@@ -203,9 +197,6 @@ function computePlanAlerts(plan) {
     return alerts;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Route handlers                                                             */
-/* -------------------------------------------------------------------------- */
 
 exports.getRequirements = async (req, res) => {
     try {
@@ -280,8 +271,7 @@ exports.generateSemester = async (req, res) => {
         );
         const groupKeyByCode = buildGroupKeyByCode();
 
-        // Anything already planned (or any group-mate of it) is excluded from
-        // this semester's candidates.
+
         const excludedCourseIds = new Set();
         const excludedGroupKeys = new Set();
         for (const row of allPlannedRows) {
@@ -346,8 +336,6 @@ exports.generateSemester = async (req, res) => {
         const { index: availabilityIndex, hasData: hasAvailability } =
             buildAvailabilityIndex(availabilityRows);
 
-        // A course's prereqs are "satisfied" if every prereq is either in a
-        // previous term, or currently in progress at/before the target term.
         const willBeDoneCourseIds = new Set();
         for (const row of allPlannedRows) {
             const isEarlierTerm = termIsBefore(
@@ -361,8 +349,6 @@ exports.generateSemester = async (req, res) => {
             }
         }
 
-        // Treat one course in a group as if all group-mates are done, so
-        // prereqs that name a sibling course are still satisfied.
         {
             const willBeDoneGroupKeys = new Set();
             for (const id of willBeDoneCourseIds) {
@@ -757,7 +743,7 @@ exports.deletePlan = async (req, res) => {
 exports.updatePlanCourses = async (req, res) => {
     try {
         const { plan_id } = req.params;
-        const courses = req.body.courses; // [{ code, title?, credits?, semester?, year?, status? }]
+        const courses = req.body.courses;
 
         if (!Array.isArray(courses)) {
             return res.status(400).json({ error: 'courses must be an array.' });
@@ -793,7 +779,7 @@ exports.updatePlanCourses = async (req, res) => {
                 year: c.year || new Date().getFullYear(),
                 status: c.status || 'Planned',
             }))
-            .filter(r => r.course_id); // drop unrecognised codes
+            .filter(r => r.course_id); 
 
         if (rows.length) {
             await PlannedCourse.bulkCreate(rows);
@@ -846,8 +832,7 @@ exports.getAvailability = async (req, res) => {
         const rows = await StudentAvailability.findAll({
             where: { student_id: req.user.user_id },
         });
-        // Hide internal sentinel rows from the client; an empty save round-trips
-        // back to the UI as an empty array, which is correct.
+
         res.json(rows.filter(r => !isSentinelRow(r)));
     } catch (error) {
         console.error('getAvailability error:', error);
@@ -861,7 +846,7 @@ exports.saveAvailability = async (req, res) => {
             return res.status(503).json({ error: 'Availability feature not available.' });
         }
 
-        const slots = req.body; // [{ day, start_time, end_time }]
+        const slots = req.body; 
         if (!Array.isArray(slots)) {
             return res.status(400).json({ error: 'Body must be an array of availability slots.' });
         }
@@ -880,8 +865,7 @@ exports.saveAvailability = async (req, res) => {
         if (rows.length) {
             await StudentAvailability.bulkCreate(rows);
         } else {
-            // Persist a sentinel row so we can tell "explicitly empty" apart
-            // from "never saved".
+
             await StudentAvailability.create({
                 student_id: req.user.user_id,
                 ...AVAILABILITY_EMPTY_SENTINEL,
