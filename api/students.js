@@ -21,16 +21,16 @@ export function getPlanFeedback(token, planId) {
   return apiRequest(`/api/students/plans/${planId}/feedback`, { token });
 }
 
-export function deletePlan(token, planId) {
-  return apiRequest(`/api/students/plans/${planId}`, {
-    method: "DELETE",
+export function submitPlan(token, planId) {
+  return apiRequest(`/api/students/plans/${planId}/submit`, {
+    method: "POST",
     token,
   });
 }
 
-export function submitPlan(token, planId) {
-  return apiRequest(`/api/students/plans/${planId}/submit`, {
-    method: "POST",
+export function deletePlan(token, planId) {
+  return apiRequest(`/api/students/plans/${planId}`, {
+    method: "DELETE",
     token,
   });
 }
@@ -47,10 +47,18 @@ export function getAvailability(token) {
   return apiRequest("/api/students/availability", { token });
 }
 
-export function saveAvailability(token, data) {
+export function saveAvailability(token, slots) {
   return apiRequest("/api/students/availability", {
     method: "PUT",
-    body: data,
+    body: slots,
+    token,
+  });
+}
+
+export function addAvailability(token, slot) {
+  return apiRequest("/api/students/availability", {
+    method: "POST",
+    body: slot,
     token,
   });
 }

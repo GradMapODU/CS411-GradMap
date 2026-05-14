@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { generateSemester, deletePlan } from "@api/students.js";
+import { generateSemester, deletePlan, submitPlan } from "@api/students.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { evaluateProgram } from "./evaluateRequirements.js";
@@ -313,6 +313,7 @@ function SavedPlanCard({
   onDelete,
   onEdit,
   onExportPdf,
+  onSubmit,
 }) {
   const visibleCourses = getVisibleCourses(plan);
   const credits = sumPlanCredits(plan);
@@ -381,6 +382,12 @@ function SavedPlanCard({
       >
         {editable && (
           <>
+            <button
+              className="btn primary gpBtn--small"
+              onClick={() => onSubmit?.(plan.id)}
+            >
+              Submit Plan
+            </button>
             <button
               className="btn gpBtn--small"
               onClick={() => onEdit?.(plan.id)}
@@ -526,6 +533,23 @@ export default function GradPlansPage({
       if (typeof onPlansChanged === "function") await onPlansChanged();
     } catch (err) {
       alert(err.message || "Failed to delete plan.");
+    }
+  }
+
+  async function handleSubmitPlan(planId) {
+    if (!planId) return;
+    if (
+      !window.confirm(
+        "Submit this plan to your advisor? Once submitted, you won't be able to edit it until the advisor responds."
+      )
+    ) {
+      return;
+    }
+    try {
+      await submitPlan(token, planId);
+      if (typeof onPlansChanged === "function") await onPlansChanged();
+    } catch (err) {
+      alert(err.message || "Failed to submit plan.");
     }
   }
 
@@ -754,6 +778,7 @@ export default function GradPlansPage({
                     onDelete={handleDeletePlan}
                     onEdit={handleEditPlan}
                     onExportPdf={handleExportPdf}
+                    onSubmit={handleSubmitPlan}
                   />
                 ))}
               </div>

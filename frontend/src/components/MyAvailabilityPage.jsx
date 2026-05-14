@@ -60,8 +60,8 @@ function backend24hToLabel(hhmm) {
   let display = h % 12;
   if (display === 0) display = 12;
   return `${display}:00 ${ampm}`;
-}*/
-
+}
+*/
 
 function labelToBackend24h(label) {
   if (!label || typeof label !== "string") return null;

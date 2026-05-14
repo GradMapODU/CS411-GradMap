@@ -94,7 +94,13 @@ function getAdvisorReviewText(plan) {
   return "Not submitted";
 }
 
-export default function StudentDashboard({ student, token, onSubmitPlan, onPlansChanged }) {
+export default function StudentDashboard({
+  student,
+  token,
+  onSubmitPlan,
+  onPlansChanged,
+  onEditPlan,
+}) {
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
 
   const pctFromCredits =
@@ -275,7 +281,9 @@ export default function StudentDashboard({ student, token, onSubmitPlan, onPlans
 
   function handleEditSelected() {
     if (!selectedSinglePlan) return;
-    console.log("Edit plan:", selectedSinglePlan);
+    if (typeof onEditPlan === "function") {
+      onEditPlan(selectedSinglePlan.id ?? selectedSinglePlan);
+    }
   }
 
   async function handleDeleteSelected() {

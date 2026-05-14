@@ -4,25 +4,31 @@ const {
     StudentAvailability, Prerequisite
 } = require('../models');
 
-exports.getRequirements = async (req, res) => {
-    try {
-        const student = await Student.findByPk(req.user.user_id);
-        const program = await Program.findOne({
-            where: { name: student.major },
-            include: [{
-                model: Course,
-                through: { attributes: ['requirement_type'] },
-                include: [{ model: Course, as: 'RequiredPrerequisites', attributes: ['course_code', 'course_name'] }]
-            }]
-        });
-
-        if (!program) return res.status(404).json({ error: 'Degree program not found.' });
-        res.json(program);
-    } catch (error) { res.status(500).json({ error: error.message }); }
-};
+/* -------------------------------------------------------------------------- */
+/* Shared helpers                                                             */
+/* -------------------------------------------------------------------------- */
 
 const DAY_LETTERS = ['M', 'T', 'W', 'R', 'F'];
+const SEMESTER_ORDER = { Spring: 0, Summer: 1, Fall: 2, Winter: 3 };
 
+// Course groups: choosing any one course in a group counts as satisfying the
+// group, so we treat the remaining members as already taken.
+const COURSE_GROUPS = [
+    ['CS 150', 'CS 151', 'CS 153'],
+    ['CS 120G', 'CS 121G', 'CS 126G', 'CS 202G'],
+];
+
+// Sentinel row used to record "the student saved an empty availability".
+// Without this we can't distinguish "no data yet" from "explicitly empty".
+const AVAILABILITY_EMPTY_SENTINEL = Object.freeze({
+    day: 'X',
+    start_time: '00:00',
+    end_time: '00:00',
+});
+
+function isSentinelRow(row) {
+    return row && row.day === AVAILABILITY_EMPTY_SENTINEL.day;
+}
 
 function toMinutes(hhmm) {
     if (!hhmm || typeof hhmm !== 'string') return NaN;
@@ -30,7 +36,6 @@ function toMinutes(hhmm) {
     if (Number.isNaN(h) || Number.isNaN(m)) return NaN;
     return h * 60 + m;
 }
-
 
 function parseTimeRange(range) {
     if (!range || typeof range !== 'string') return null;
@@ -46,7 +51,6 @@ function expandDays(days) {
     return String(days).split('').filter(d => DAY_LETTERS.includes(d));
 }
 
-
 function meetingsConflict(a, b) {
     const aRange = parseTimeRange(a.time_range);
     const bRange = parseTimeRange(b.time_range);
@@ -58,7 +62,6 @@ function meetingsConflict(a, b) {
 
     return aRange.start < bRange.end && bRange.start < aRange.end;
 }
-
 
 function groupSlotsIntoSections(slots) {
     const map = new Map();
@@ -78,22 +81,13 @@ function groupSlotsIntoSections(slots) {
     return Array.from(map.values());
 }
 
-const AVAILABILITY_EMPTY_SENTINEL = Object.freeze({
-    day: 'X',
-    start_time: '00:00',
-    end_time: '00:00',
-});
-
-function isSentinelRow(row) {
-    return row && row.day === AVAILABILITY_EMPTY_SENTINEL.day;
-}
-
 function buildAvailabilityIndex(availabilityRows) {
     const idx = { M: [], T: [], W: [], R: [], F: [] };
 
     const realRows = (availabilityRows || []).filter(r => !isSentinelRow(r));
     const sawSentinel = (availabilityRows || []).some(isSentinelRow);
 
+    // No data at all => treat the student as fully open 6 AM - 10 PM.
     if (realRows.length === 0 && !sawSentinel) {
         for (const d of DAY_LETTERS) {
             idx[d].push({ start: 6 * 60, end: 22 * 60 });
@@ -110,7 +104,6 @@ function buildAvailabilityIndex(availabilityRows) {
     }
     return { index: idx, hasData: true };
 }
-
 
 function meetingFitsAvailability(meeting, availabilityIndex) {
     const range = parseTimeRange(meeting.time_range);
@@ -139,19 +132,10 @@ function sectionsConflict(secA, secB) {
     return false;
 }
 
-const SEMESTER_ORDER = { Spring: 0, Summer: 1, Fall: 2, Winter: 3 };
-
-
 function termIsBefore(yearA, semA, yearB, semB) {
     if (yearA !== yearB) return yearA < yearB;
     return (SEMESTER_ORDER[semA] ?? 99) < (SEMESTER_ORDER[semB] ?? 99);
 }
-
-const COURSE_GROUPS = [
-    ['CS 150', 'CS 151', 'CS 153'],            
-    ['CS 120G', 'CS 121G', 'CS 126G', 'CS 202G'], 
-];
-
 
 function buildGroupKeyByCode() {
     const map = new Map();
@@ -162,12 +146,96 @@ function buildGroupKeyByCode() {
     return map;
 }
 
-
 function parseCourseNumber(code) {
     if (!code) return Infinity;
     const m = String(code).match(/(\d+)/);
     return m ? Number(m[1]) : Infinity;
 }
+
+function buildTermLabel(plannedCourses) {
+    if (!Array.isArray(plannedCourses) || plannedCourses.length === 0) return "";
+
+    const semesterOrder = { Winter: 0, Spring: 1, Summer: 2, Fall: 3 };
+
+    const valid = plannedCourses
+        .filter(pc => pc && pc.semester && pc.year)
+        .sort((a, b) => {
+            if (a.year !== b.year) return a.year - b.year;
+            return (semesterOrder[a.semester] ?? 99) - (semesterOrder[b.semester] ?? 99);
+        });
+
+    if (valid.length === 0) return "";
+    return `${valid[0].semester} ${valid[0].year}`;
+}
+
+function mapPlanStatus(status) {
+    return status || "Draft";
+}
+
+function computePlanAlerts(plan) {
+    const alerts = { informative: [], warnings: [], urgent: [] };
+    const courses = plan.courses || [];
+    const totalCredits = courses.reduce((s, c) => s + (c.credits || 0), 0);
+
+    if (totalCredits >= 18) {
+        alerts.urgent.push(`Very heavy load: ${totalCredits} credits this semester.`);
+    } else if (totalCredits >= 16) {
+        alerts.warnings.push(`Heavy academic load projected: ${totalCredits} credits.`);
+    } else if (totalCredits > 0 && totalCredits < 12) {
+        alerts.informative.push(`Light load: ${totalCredits} credits — verify full-time status if needed.`);
+    }
+
+    if (courses.length === 0 && plan.status !== "Historical") {
+        alerts.warnings.push("This plan has no courses yet.");
+    }
+
+    const hasPlanned   = courses.some(c => c.status === "Planned");
+    const hasEnrolled  = courses.some(c => c.status === "Enrolled");
+    const hasCompleted = courses.some(c => c.status === "Completed");
+
+    if (hasEnrolled && hasPlanned) {
+        alerts.informative.push("Plan contains both enrolled and still-planned courses.");
+    }
+    if (hasCompleted && (hasEnrolled || hasPlanned)) {
+        alerts.informative.push("Plan mixes completed and upcoming courses.");
+    }
+
+    return alerts;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Route handlers                                                             */
+/* -------------------------------------------------------------------------- */
+
+exports.getRequirements = async (req, res) => {
+    try {
+        const student = await Student.findByPk(req.user.user_id);
+        if (!student) {
+            return res.status(404).json({ error: 'Student not found.' });
+        }
+
+        const program = await Program.findOne({
+            where: { name: student.major },
+            include: [{
+                model: Course,
+                through: { attributes: ['requirement_type'] },
+                include: [{
+                    model: Course,
+                    as: 'RequiredPrerequisites',
+                    attributes: ['course_code', 'course_name'],
+                }],
+            }],
+        });
+
+        if (!program) {
+            return res.status(404).json({ error: 'Degree program not found.' });
+        }
+        res.json(program);
+    } catch (error) {
+        console.error('getRequirements error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
 
 exports.generateSemester = async (req, res) => {
     console.log("generateSemester body:", req.body, "user:", req.user?.user_id);
@@ -181,7 +249,7 @@ exports.generateSemester = async (req, res) => {
 
         const program = await Program.findOne({
             where: { name: student.major },
-            include: [{ model: Course }]
+            include: [{ model: Course }],
         });
 
         if (!program) {
@@ -191,7 +259,6 @@ exports.generateSemester = async (req, res) => {
         const requiredCourseIds = new Set(
             (program.Courses || []).map(c => c.course_id)
         );
-
 
         const allPlannedRows = await PlannedCourse.findAll({
             include: [{
@@ -213,42 +280,8 @@ exports.generateSemester = async (req, res) => {
         );
         const groupKeyByCode = buildGroupKeyByCode();
 
-        const structured = req.body && req.body.requirements;
-        if (structured && Array.isArray(structured.sections)) {
-            let dynIdx = COURSE_GROUPS.length;
-            const addClass = (codes) => {
-                if (!Array.isArray(codes) || codes.length < 2) return;
-
-                const key = `__dyn_${dynIdx++}`;
-                for (const code of codes) {
-                    if (!code) continue;
-                    if (groupKeyByCode.has(code)) continue;
-                    groupKeyByCode.set(code, key);
-                }
-            };
-            for (const section of structured.sections) {
-                for (const reqItem of section.requirements || []) {
-                    if (reqItem.kind === 'chooseOne') {
-                        addClass((reqItem.options || []).map(o => o.code));
-                    } else if (reqItem.kind === 'chooseOneGroup') {
-                        const groups = reqItem.groups || [];
-                        const codeFrequency = new Map();
-                        for (const g of groups) {
-                            for (const c of g.codes || []) {
-                                codeFrequency.set(c, (codeFrequency.get(c) || 0) + 1);
-                            }
-                        }
-                        for (const g of groups) {
-                            const uniqueHeads = (g.codes || []).filter(
-                                c => codeFrequency.get(c) === 1
-                            );
-                            addClass(uniqueHeads);
-                        }
-                    }
-                }
-            }
-        }
-
+        // Anything already planned (or any group-mate of it) is excluded from
+        // this semester's candidates.
         const excludedCourseIds = new Set();
         const excludedGroupKeys = new Set();
         for (const row of allPlannedRows) {
@@ -258,7 +291,6 @@ exports.generateSemester = async (req, res) => {
                 excludedGroupKeys.add(groupKeyByCode.get(code));
             }
         }
-
         for (const [code, key] of groupKeyByCode.entries()) {
             if (excludedGroupKeys.has(key)) {
                 const id = idByCourseCode.get(code);
@@ -266,12 +298,10 @@ exports.generateSemester = async (req, res) => {
             }
         }
 
-
         const offerings = await SemesterOffering.findAll({
             where: { semester: targetSemester },
-            include: [{ model: Course }]
+            include: [{ model: Course }],
         });
-
 
         const candidateCourses = offerings
             .filter(o =>
@@ -291,13 +321,12 @@ exports.generateSemester = async (req, res) => {
             });
         }
 
-
         const candidateIds = candidateCourses.map(c => c.course_id);
         const slots = await TimeSlot.findAll({
             where: {
                 course_id: candidateIds,
                 semester: targetSemester,
-            }
+            },
         });
 
         const sectionsByCourse = new Map();
@@ -308,16 +337,17 @@ exports.generateSemester = async (req, res) => {
             sectionsByCourse.get(section.course_id).push(section);
         }
 
-
         let availabilityRows = [];
         if (StudentAvailability) {
             availabilityRows = await StudentAvailability.findAll({
-                where: { student_id: student.student_id }
+                where: { student_id: student.student_id },
             });
         }
         const { index: availabilityIndex, hasData: hasAvailability } =
             buildAvailabilityIndex(availabilityRows);
 
+        // A course's prereqs are "satisfied" if every prereq is either in a
+        // previous term, or currently in progress at/before the target term.
         const willBeDoneCourseIds = new Set();
         for (const row of allPlannedRows) {
             const isEarlierTerm = termIsBefore(
@@ -331,7 +361,8 @@ exports.generateSemester = async (req, res) => {
             }
         }
 
-
+        // Treat one course in a group as if all group-mates are done, so
+        // prereqs that name a sibling course are still satisfied.
         {
             const willBeDoneGroupKeys = new Set();
             for (const id of willBeDoneCourseIds) {
@@ -351,7 +382,6 @@ exports.generateSemester = async (req, res) => {
         const prereqRows = await Prerequisite.findAll({
             where: { course_id: candidateIds },
         });
-
 
         const prereqsByCourse = new Map();
         for (const row of prereqRows) {
@@ -373,10 +403,9 @@ exports.generateSemester = async (req, res) => {
             : [];
         const codeById = new Map(prereqCourseRows.map(c => [c.course_id, c.course_code]));
 
-        const chosenSections = []; 
-        const skipped = [];        
+        const chosenSections = [];
+        const skipped = [];
         let creditsSoFar = 0;
-
 
         const sortedCandidates = [...candidateCourses].sort((a, b) => {
             const an = parseCourseNumber(a.course_code);
@@ -442,7 +471,6 @@ exports.generateSemester = async (req, res) => {
             chosenSections.push({ course, section: nonConflicting, warnings: courseWarnings });
             creditsSoFar += (course.credits || 0);
 
-
             for (const w of courseWarnings) {
                 skipped.push({
                     courseCode: course.course_code,
@@ -463,7 +491,6 @@ exports.generateSemester = async (req, res) => {
             });
         }
 
-        
         const plan = await Plan.create({
             student_id: student.student_id,
             degree_program: student.major,
@@ -471,7 +498,7 @@ exports.generateSemester = async (req, res) => {
             creation_date: new Date(),
         });
 
-        for (const { course, section } of chosenSections) {
+        for (const { course } of chosenSections) {
             await PlannedCourse.create({
                 plan_id: plan.plan_id,
                 course_id: course.course_id,
@@ -508,7 +535,6 @@ exports.generateSemester = async (req, res) => {
             plan_id: plan.plan_id,
             totalCredits: creditsSoFar,
             scheduled: scheduledOut,
-            
             warnings: scheduledOut
                 .filter(s => s.warnings && s.warnings.length)
                 .flatMap(s => s.warnings.map(w => ({ courseCode: s.courseCode, reason: w }))),
@@ -526,10 +552,10 @@ exports.checkConflicts = async (req, res) => {
         const { plan_id } = req.params;
         const courses = await PlannedCourse.findAll({
             where: { plan_id },
-            include: [{ model: Course, include: [TimeSlot] }]
+            include: [{ model: Course, include: [TimeSlot] }],
         });
 
-        let conflicts = [];
+        const conflicts = [];
         for (let i = 0; i < courses.length; i++) {
             for (let j = i + 1; j < courses.length; j++) {
                 const slotsI = courses[i].Course.Time_Slots || [];
@@ -549,7 +575,10 @@ exports.checkConflicts = async (req, res) => {
         }
 
         res.json({ hasConflicts: conflicts.length > 0, conflicts });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) {
+        console.error('checkConflicts error:', error);
+        res.status(500).json({ error: error.message });
+    }
 };
 
 exports.getPlanFeedback = async (req, res) => {
@@ -558,65 +587,15 @@ exports.getPlanFeedback = async (req, res) => {
 
         const feedback = await PlanFeedback.findAll({
             where: { plan_id },
-            order: [['createdAt', 'DESC']]
+            order: [['createdAt', 'DESC']],
         });
 
         res.json(feedback);
     } catch (error) {
+        console.error('getPlanFeedback error:', error);
         res.status(500).json({ error: error.message });
     }
 };
-
-function buildTermLabel(plannedCourses) {
-    if (!Array.isArray(plannedCourses) || plannedCourses.length === 0) return "";
-
-    const semesterOrder = { Winter: 0, Spring: 1, Summer: 2, Fall: 3 };
-
-    const valid = plannedCourses
-        .filter(pc => pc && pc.semester && pc.year)
-        .sort((a, b) => {
-            if (a.year !== b.year) return a.year - b.year;
-            return (semesterOrder[a.semester] ?? 99) - (semesterOrder[b.semester] ?? 99);
-        });
-
-    if (valid.length === 0) return "";
-    return `${valid[0].semester} ${valid[0].year}`;
-}
-
-function mapPlanStatus(status) {
-    return status || "Draft";
-}
-
-function computePlanAlerts(plan) {
-    const alerts = { informative: [], warnings: [], urgent: [] };
-    const courses = plan.courses || [];
-    const totalCredits = courses.reduce((s, c) => s + (c.credits || 0), 0);
-
-    if (totalCredits >= 18) {
-        alerts.urgent.push(`Very heavy load: ${totalCredits} credits this semester.`);
-    } else if (totalCredits >= 16) {
-        alerts.warnings.push(`Heavy academic load projected: ${totalCredits} credits.`);
-    } else if (totalCredits > 0 && totalCredits < 12) {
-        alerts.informative.push(`Light load: ${totalCredits} credits — verify full-time status if needed.`);
-    }
-
-    if (courses.length === 0 && plan.status !== "Historical") {
-        alerts.warnings.push("This plan has no courses yet.");
-    }
-
-    const hasPlanned   = courses.some(c => c.status === "Planned");
-    const hasEnrolled  = courses.some(c => c.status === "Enrolled");
-    const hasCompleted = courses.some(c => c.status === "Completed");
-
-    if (hasEnrolled && hasPlanned) {
-        alerts.informative.push("Plan contains both enrolled and still-planned courses.");
-    }
-    if (hasCompleted && (hasEnrolled || hasPlanned)) {
-        alerts.informative.push("Plan mixes completed and upcoming courses.");
-    }
-
-    return alerts;
-}
 
 exports.getCurrentStudent = async (req, res) => {
     try {
@@ -629,22 +608,22 @@ exports.getCurrentStudent = async (req, res) => {
                     include: [
                         {
                             model: PlannedCourse,
-                            include: [Course]
+                            include: [Course],
                         },
                         {
                             model: PlanFeedback,
                             include: [{
                                 model: Advisor,
-                                attributes: ['first_name', 'last_name']
-                            }]
-                        }
-                    ]
+                                attributes: ['first_name', 'last_name'],
+                            }],
+                        },
+                    ],
                 },
                 {
                     model: Advisor,
-                    attributes: ['first_name', 'last_name']
-                }
-            ]
+                    attributes: ['first_name', 'last_name'],
+                },
+            ],
         });
 
         if (!student) {
@@ -691,7 +670,7 @@ exports.getCurrentStudent = async (req, res) => {
                 reviewedBy: newest?.Advisor
                     ? `${newest.Advisor.first_name} ${newest.Advisor.last_name}`
                     : "",
-                advisorFeedback: newest?.message || ""
+                advisorFeedback: newest?.message || "",
             };
             planRow.alerts = computePlanAlerts(planRow);
             return planRow;
@@ -711,6 +690,7 @@ exports.getCurrentStudent = async (req, res) => {
 
         const gpaNum = student.GPA != null && student.GPA !== "" ? Number(student.GPA) : null;
         const gpa = Number.isFinite(gpaNum) ? gpaNum : (student.GPA || "");
+
         const studentAlerts = { informative: [], warnings: [], urgent: [] };
         for (const row of planRows) {
             if (row.status === "Historical") continue;
@@ -721,7 +701,8 @@ exports.getCurrentStudent = async (req, res) => {
         studentAlerts.informative = [...new Set(studentAlerts.informative)];
         studentAlerts.warnings = [...new Set(studentAlerts.warnings)];
         studentAlerts.urgent = [...new Set(studentAlerts.urgent)];
-        const response = {
+
+        res.json({
             student_id: student.student_id,
             name: `${student.first_name || ""} ${student.last_name || ""}`.trim(),
             first_name: student.first_name || "",
@@ -732,17 +713,12 @@ exports.getCurrentStudent = async (req, res) => {
             advisor: student.Advisor
                 ? `${student.Advisor.first_name} ${student.Advisor.last_name}`
                 : "",
-
             creditsEarned,
             creditsRequired,
             progressPercent,
-
             alerts: studentAlerts,
-
-            plan: planRows
-        };
-
-        res.json(response);
+            plan: planRows,
+        });
     } catch (error) {
         console.error("getCurrentStudent error:", error);
         res.status(500).json({ error: error.message });
@@ -781,7 +757,7 @@ exports.deletePlan = async (req, res) => {
 exports.updatePlanCourses = async (req, res) => {
     try {
         const { plan_id } = req.params;
-        const courses = req.body.courses; 
+        const courses = req.body.courses; // [{ code, title?, credits?, semester?, year?, status? }]
 
         if (!Array.isArray(courses)) {
             return res.status(400).json({ error: 'courses must be an array.' });
@@ -813,11 +789,11 @@ exports.updatePlanCourses = async (req, res) => {
             .map(c => ({
                 plan_id: Number(plan_id),
                 course_id: idByCode.get(c.code),
-                semester: plan.status === 'Needs Revision' ? c.semester || 'Fall' : c.semester || 'Fall',
+                semester: c.semester || 'Fall',
                 year: c.year || new Date().getFullYear(),
                 status: c.status || 'Planned',
             }))
-            .filter(r => r.course_id);
+            .filter(r => r.course_id); // drop unrecognised codes
 
         if (rows.length) {
             await PlannedCourse.bulkCreate(rows);
@@ -851,13 +827,16 @@ exports.submitPlan = async (req, res) => {
         plan.status = 'Pending';
         await plan.save();
 
-        res.json({ message: 'Plan submitted for advisor review.', plan_id, status: plan.status });
+        res.json({
+            message: 'Plan submitted for advisor review.',
+            plan_id,
+            status: plan.status,
+        });
     } catch (error) {
         console.error('submitPlan error:', error);
         res.status(500).json({ error: error.message });
     }
 };
-
 
 exports.getAvailability = async (req, res) => {
     try {
@@ -867,6 +846,8 @@ exports.getAvailability = async (req, res) => {
         const rows = await StudentAvailability.findAll({
             where: { student_id: req.user.user_id },
         });
+        // Hide internal sentinel rows from the client; an empty save round-trips
+        // back to the UI as an empty array, which is correct.
         res.json(rows.filter(r => !isSentinelRow(r)));
     } catch (error) {
         console.error('getAvailability error:', error);
@@ -880,7 +861,7 @@ exports.saveAvailability = async (req, res) => {
             return res.status(503).json({ error: 'Availability feature not available.' });
         }
 
-        const slots = req.body;
+        const slots = req.body; // [{ day, start_time, end_time }]
         if (!Array.isArray(slots)) {
             return res.status(400).json({ error: 'Body must be an array of availability slots.' });
         }
@@ -899,6 +880,8 @@ exports.saveAvailability = async (req, res) => {
         if (rows.length) {
             await StudentAvailability.bulkCreate(rows);
         } else {
+            // Persist a sentinel row so we can tell "explicitly empty" apart
+            // from "never saved".
             await StudentAvailability.create({
                 student_id: req.user.user_id,
                 ...AVAILABILITY_EMPTY_SENTINEL,
@@ -911,7 +894,6 @@ exports.saveAvailability = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 
 exports.addAvailability = async (req, res) => {
     try {
